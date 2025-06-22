@@ -1,7 +1,7 @@
 "use client";
 
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { metaMask } from 'wagmi/connectors';
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { metaMask } from "wagmi/connectors";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
