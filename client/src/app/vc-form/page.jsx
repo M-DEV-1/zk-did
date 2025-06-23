@@ -16,6 +16,36 @@ export default function AadhaarVCForm() {
   const [formData, setFormData] = useState({ walletAddress: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Mock data array
+  const mockDataArray = [
+    {
+      aadhaarId: "123456789012",
+      name: "Manoj Kumar",
+      dob: "1990-01-01",
+      location: { latitude: 28.6139, longitude: 77.2090 },
+    },
+    {
+      aadhaarId: "987654321098",
+      name: "Priya Sharma",
+      dob: "1985-05-15",
+      location: { latitude: 19.0760, longitude: 72.8777 },
+    },
+    {
+      aadhaarId: "111122223333",
+      name: "Rahul Singh",
+      dob: "2000-12-31",
+      location: { latitude: 12.9716, longitude: 77.5946 },
+    },
+  ];
+
+  const handlePrefill = () => {
+    const random = Math.floor(Math.random() * mockDataArray.length);
+    setFormData((prev) => ({
+      ...mockDataArray[random],
+      walletAddress: address,
+    }));
+  };
+
   useEffect(() => {
     if (address) {
       setFormData((prev) => ({ ...prev, walletAddress: address }));
@@ -62,7 +92,10 @@ export default function AadhaarVCForm() {
         validator={validator}
         templates={{ FieldTemplate: CustomFieldTemplate }}
       >
-        <div className="pt-2 flex justify-end">
+        <div className="pt-2 flex justify-between items-center">
+          <Button type="button" variant="secondary" onClick={handlePrefill} className="text-xs px-3 py-1">
+            Pre-fill
+          </Button>
           <Button type="submit" variant="secondary" className="min-w-[120px]" disabled={isSubmitting}>
             {isSubmitting ? (
               <span className="flex items-center gap-2">
