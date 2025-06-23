@@ -4,6 +4,8 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { metaMask } from "wagmi/connectors";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowBigLeftDashIcon, ArrowBigRightDashIcon } from "lucide-react";
 
 const connector = metaMask();
 
@@ -13,6 +15,7 @@ export default function Home() {
   const { connectAsync } = useConnect();
   const { disconnect } = useDisconnect();
   const { address, isConnected } = useAccount();
+  const router = useRouter();
 
 
   const handleConnect = async () => {
@@ -27,7 +30,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center px-4">
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center space-y-4 px-4">
       {!isConnected ? (
         <Button
           variant="secondary"
@@ -38,12 +41,17 @@ export default function Home() {
           {isConnecting ? "Connecting..." : "Connect Wallet"}
         </Button>
       ) : (
-        <div className="flex flex-col items-center space-y-4">
+        <>
           <p className="text-white">Connected: {address}</p>
-          <Button variant="secondary" size="lg" onClick={() => disconnect()}>
-            Disconnect
-          </Button>
-        </div>
+          <div className="flex space-x-4">
+            <Button variant="secondary" size="lg" onClick={() => disconnect()}>
+              Disconnect
+            </Button>
+            <Button variant="default" size="lg" onClick={() => router.push("/vc-form")}>
+              Next <ArrowBigRightDashIcon/>
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );
