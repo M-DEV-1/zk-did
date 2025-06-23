@@ -5,7 +5,7 @@ import { metaMask } from "wagmi/connectors";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowBigLeftDashIcon, ArrowBigRightDashIcon } from "lucide-react";
+import { ArrowBigRightDashIcon } from "lucide-react";
 
 const connector = metaMask();
 
