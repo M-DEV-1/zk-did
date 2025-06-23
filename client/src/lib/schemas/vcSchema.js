@@ -85,6 +85,8 @@ export const AadhaarVCUISchema = {
         "ui:options": {
             "label": false,
         },
+        "ui:readonly": true,
+        "ui:disabled": true,
         "latitude": {
             "ui:placeholder": "e.g. 28.6139",
         },

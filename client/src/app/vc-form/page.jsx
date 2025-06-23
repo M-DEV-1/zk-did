@@ -52,10 +52,39 @@ export default function AadhaarVCForm() {
     }
   }, [address]);
 
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Geolocation not supported",
+        description: "Your browser does not support geolocation.",
+        variant: "destructive",
+      });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormData((prev) => ({
+          ...prev,
+          location: {
+            ...prev.location,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          },
+        }));
+      },
+      (err) => {
+        toast({
+          title: "Location error",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    );
+  }, []);
+
   const handleSubmit = async ({ formData }) => {
     setIsSubmitting(true);
     try {
-      // Simulate async work (e.g., IPFS upload)
       await new Promise((res) => setTimeout(res, 1200));
       console.log("✅ Final VC payload:", formData);
       toast({
