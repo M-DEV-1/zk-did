@@ -5,16 +5,20 @@ import Form from "@rjsf/core";
 import validator from "@rjsf/validator-ajv8";
 import { Button } from "@/components/ui/button";
 import { AadhaarVCSchema, AadhaarVCUISchema } from "@/lib/schemas/vcSchema";
-import { Fingerprint } from "lucide-react";
+import { Fingerprint, ArrowBigRightDashIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 export default function AadhaarVCForm() {
   const { toast } = useToast();
   const { address } = useAccount();
   const [formData, setFormData] = useState({ walletAddress: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const router = useRouter();
 
   // Mock data array
   const mockDataArray = [
@@ -98,6 +102,7 @@ export default function AadhaarVCForm() {
           description: `IPFS CID: ${data.cid}`,
         });
         // TODO: save/display CID, reset form, etc.
+        setSubmitted(true);
       } else {
         throw new Error(data.error || "Failed to Upload to IPFS");
       }
@@ -146,7 +151,21 @@ export default function AadhaarVCForm() {
             ) : (
               "Submit"
             )}
+            {/* ATTENTION
+            it might be nice to have a pop up here, describing what data is collected, and what the users can do with it. a simple, " I understand what this means " popup which can be accessed by the user's later. */}
           </Button>
+          <div>
+            <Button
+              type="button"
+              variant={submitted ? "secondary" : "default"}
+              size="lg"
+              onClick={submitted ? () => router.push("/dashboard") : undefined}
+              className={cn(!submitted && "text-muted-foreground")}
+              disabled={!submitted}
+            >
+              Next <ArrowBigRightDashIcon />
+            </Button>
+          </div>
         </div>
       </Form>
     </RJSFWrapper>
