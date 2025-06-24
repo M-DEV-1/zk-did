@@ -85,17 +85,26 @@ export default function AadhaarVCForm() {
   const handleSubmit = async ({ formData }) => {
     setIsSubmitting(true);
     try {
-      await new Promise((res) => setTimeout(res, 1200));
-      console.log("✅ Final VC payload:", formData);
-      toast({
-        title: "Credential prepared",
-        description: "Verifiable Credential payload is ready for IPFS upload.",
+      const res = await fetch("/api/upload-vc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
       });
-      // TODO: Upload to IPFS or sign
+
+      const data = await res.json();
+      if (res.ok) {
+        toast({
+          title: "Credential uploaded",
+          description: `IPFS CID: ${data.cid}`,
+        });
+        // TODO: save/display CID, reset form, etc.
+      } else {
+        throw new Error(data.error || "Failed to Upload to IPFS");
+      }
     } catch (err) {
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: err.message,
         variant: "destructive",
       });
     } finally {
