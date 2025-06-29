@@ -230,7 +230,7 @@ export default function ProviderDashboard() {
             <Button className="mt-4" onClick={() => setShowModal(true)}>
               Send Request <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
-            <Button onClick={() => {localStorage.clear("allRequests");}} variant="destructive" className="ml-auto">Clear All</Button>
+            <Button onClick={() => {localStorage.removeItem('allRequests');}} variant="destructive" className="ml-auto">Clear All</Button>
           </div>
 
           <div>
