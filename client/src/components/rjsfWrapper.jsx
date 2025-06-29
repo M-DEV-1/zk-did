@@ -2,7 +2,7 @@
 
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { AlertCircle, ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { BackButton } from "./backButton";
 import React from "react";
 
 // Memoized CustomFieldTemplate to prevent unnecessary re-renders
@@ -40,20 +40,6 @@ export const CustomFieldTemplate = React.memo(function CustomFieldTemplate(props
     </div>
   );
 });
-
-function BackButton({ className }) {
-  const router = useRouter();
-  return (
-    <button
-      type="button"
-      onClick={() => router.back()}
-      className={`flex items-center gap-2 text-muted-foreground hover:text-white text-sm font-medium mb-2 ${className}`}
-    >
-      <ArrowLeft className="w-4 h-4" />
-      Back
-    </button>
-  );
-}
 
 export default function RJSFWrapper({ title, subtitle, icon, children, showBackButton = true }) {
   return (

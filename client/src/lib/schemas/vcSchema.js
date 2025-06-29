@@ -35,6 +35,10 @@ export const AadhaarVCSchema = {
             "format": "date"
         },
         "location": {
+            /*
+                location -
+                    sessionID, lat, long
+            */
             "type": "object",
             "title": "Location Coordinates",
             "required": ["latitude", "longitude"],
@@ -43,7 +47,7 @@ export const AadhaarVCSchema = {
                     "type": "number",
                     "title": "Latitude",
                     "minimum": -90,
-                    "maximum": 90
+                    "maximum": 90 // 125.1234 
                 },
                 "longitude": {
                     "type": "number",
@@ -54,6 +58,17 @@ export const AadhaarVCSchema = {
                 // TODO: explore dynamic location - further
             }
         },
+        "signature": {
+            "type": "string",
+            "title": "Signature (MetaMask)",
+            "readOnly": true
+        },
+        // "session": {
+        //     "type": "time",
+        //     "title": "Session Expiry",
+        //     "readOnly": true
+        // }
+        // TODO: re-sign the form, after consent expiry with updated info. Modify schema for that.
     }
 };
 
@@ -93,6 +108,12 @@ export const AadhaarVCUISchema = {
         "longitude": {
             "ui:placeholder": "e.g. 77.2090",
         },
+    },
+    "signature": {
+        "ui:readonly": true,
+        "ui:disabled": true,
+        "ui:widget": "text",
+        "ui:placeholder": "Will be filled after MetaMask signature"
     },
 };
 
