@@ -16,7 +16,7 @@ export default function ConsentModal({ isOpen, onClose, onApprove, onReject, pro
   const [consentData, setConsentData] = useState({});
 
   // Initialize consent data based on provider's requested fields
-  useState(() => {
+  useEffect(() => {
     if (providerData?.requestedFields) {
       const initialData = {};
       providerData.requestedFields.forEach(field => {
