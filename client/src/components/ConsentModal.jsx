@@ -24,7 +24,7 @@ export default function ConsentModal({ isOpen, onClose, onApprove, onReject, pro
       });
       setConsentData(initialData);
     }
-  });
+  }, [providerData]);
 
   const handleApprove = () => {
     const approvedFields = Object.keys(consentData).filter(key => consentData[key]);
