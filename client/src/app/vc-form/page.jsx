@@ -16,13 +16,33 @@ export default function AadhaarVCForm() {
   const { toast } = useToast();
   const { address } = useAccount();
   const { signMessageAsync, data: signature } = useSignMessage();
-  const [formData, setFormData] = useState({ walletAddress: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [signing, setSigning] = useState(false);
   const router = useRouter();
 
-  // Mock data array
+  // temporary function - before "proofs" circuit compilation script is written in 'client'
+  const generateEmptyProof = () => ({
+    protocol: "groth16",
+    curve: "bn128",
+    pi_a: ["", "", ""],
+    pi_b: [["", ""], ["", ""], ["", ""]],
+    pi_c: ["", "", ""],
+    publicSignals: []
+  });
+
+  // initialize user-facing fields
+  const [formData, setFormData] = useState({
+    walletAddress: "",
+    aadhaarId: "",
+    name: "",
+    dob: "",
+    location: { latitude: 0, longitude: 0 },
+    proof: generateEmptyProof()
+    // hidden fields are populated before submit
+  });
+
+  // Mock data array for pre-fill
   const mockDataArray = [
     {
       aadhaarId: "123456789012",
@@ -44,20 +64,39 @@ export default function AadhaarVCForm() {
     },
   ];
 
+  // temporary helper functions -> remove after session plugin is optional
+  const generateSession = () => ({
+    id: crypto.randomUUID?.() || `session_${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+    status: "ongoing"
+  });
+
+  const generateLocationHistory = (currentLocation) => ([
+    {
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      session: generateSession(),
+    }
+  ]);
+
   const handlePrefill = () => {
     const random = Math.floor(Math.random() * mockDataArray.length);
     setFormData((prev) => ({
+      ...prev,
       ...mockDataArray[random],
       walletAddress: address,
     }));
   };
 
+  // set wallet address on every switch
   useEffect(() => {
     if (address) {
       setFormData((prev) => ({ ...prev, walletAddress: address }));
     }
   }, [address]);
 
+  // ask for user's location
   useEffect(() => {
     if (!navigator.geolocation) {
       toast({
@@ -110,18 +149,39 @@ export default function AadhaarVCForm() {
   const handleSubmit = useCallback(async ({ formData }) => {
     setIsSubmitting(true);
     try {
-      // 1. Sign the payload
-      const signature = await signPayload(formData);
+      const now = new Date();
+      const verifiableCredential = {
+        context: ["https://www.w3.org/2018/credentials/v1"],
+        type: ["VerifiableCredential", "AadhaarCredential"],
+        issuer: "did:example:issuer",
+        issuanceDate: now.toISOString(),
 
-      // 2. Add the signature
-      const signedPayload = { ...formData, signature };
+        // user-provided data
+        walletAddress: formData.walletAddress,
+        aadhaarId: formData.aadhaarId,
+        name: formData.name,
+        dob: formData.dob,
+        location: formData.location,
 
-      // 3. Upload to IPFS
+        // system-generated data
+        locationHistory: generateLocationHistory(formData.location),
+        signatures: [], // populates after signPayload is triggered
+        proof: generateEmptyProof() //TODO: replace with compile-proof script function
+      };
+
+      const signature = await signPayload(verifiableCredential);
+
+      verifiableCredential.signatures.push({
+        stage: "issue",
+        value: signature,
+        timestamp: new Date().toISOString()
+      });
+
       const res = await fetch("/api/upload-vc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(signedPayload),
-      }); // not using axios because it's just less than four apis, will standardize and cleanup in the end
+        body: JSON.stringify(verifiableCredential),
+      });
 
       const data = await res.json();
 

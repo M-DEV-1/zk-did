@@ -5,15 +5,15 @@
 */
 
 export const AadhaarVCSchema = {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     $id: "https://example.com/vc/aadhaar-v0.2.json", // placeholder for now
     title: "Aadhaar Verifiable Credential",
     type: "object",
 
     required: [
-        "context", "type", "issuer", "issuanceDate",
+        //"context", "type", "issuer", "issuanceDate",
         "walletAddress", "aadhaarId", "name", "dob", "location",
-        "signatures", "proof" 
+        //"signatures", "proof" 
     ],
 
     properties: {
@@ -47,35 +47,35 @@ export const AadhaarVCSchema = {
             format: "date"
         },
         location: {
+            title: "Location",
             type: "object",
             required: ["latitude", "longitude"],
             properties: {
-                latitude: { type: "number", minimum: -90, maximum: 90 },
-                longitude: { type: "number", minimum: -180, maximum: 180 }
+                latitude: { title: "Latitude", type: "number", minimum: -90, maximum: 90 },
+                longitude: { title: "Longitude", type: "number", minimum: -180, maximum: 180 }
             }
         },
 
         /** === Extra, mutable =========================================== **/
-        session: {
-            type: "object",
-            required: ["id", "createdAt", "expiresAt", "status"],
-            properties: {
-                id: { type: "string" },
-                createdAt: { type: "string", format: "date-time" },
-                expiresAt: { type: "string", format: "date-time" },
-                status: { type: "string", enum: ["ongoing", "revoked", "completed"] }
-            }
-        },
 
         locationHistory: {
             type: "array",
             items: {
                 type: "object",
-                required: ["latitude", "longitude", "timestamp"],
+                required: ["latitude", "longitude", "session"],
                 properties: {
                     latitude: { type: "number" },
                     longitude: { type: "number" },
-                    timestamp: { type: "string", format: "date-time" }
+                    session: {
+                        type: "object",
+                        required: ["id", "createdAt", "expiresAt", "status"],
+                        properties: {
+                            id: { type: "string" },
+                            createdAt: { type: "string", format: "date-time" },
+                            expiresAt: { type: "string", format: "date-time" },
+                            status: { type: "string", enum: ["ongoing", "revoked", "completed"] }
+                        }
+                    },
                 }
             }
         },
@@ -95,13 +95,13 @@ export const AadhaarVCSchema = {
                     timestamp: { type: "string", format: "date-time" }
                 }
             },
-            minItems: 1
+            // minItems: 1
         },
 
         /** === zk-SNARK Proof ========================================== **/
         proof: {
             type: "object",
-            required: ["protocol", "curve", "pi_a", "pi_b", "pi_c", "publicSignals"],
+            // required: ["protocol", "curve", "pi_a", "pi_b", "pi_c", "publicSignals"],
             properties: {
                 protocol: { type: "string", enum: ["groth16"] },
                 curve: { type: "string", enum: ["bn128", "bls12_381"] },
@@ -134,20 +134,41 @@ export const AadhaarVCSchema = {
 };
 
 export const AadhaarVCUISchema = {
-    walletAddress: { "ui:readonly": true, "ui:disabled": true },
+    "ui:title": false,
+    context: {
+        "ui:widget": "hidden"
+    },
+    type: {
+        "ui:widget": "hidden"
+    },
+    issuer: {
+        "ui:widget": "hidden"
+    },
+    issuanceDate: {
+        "ui:widget": "hidden"
+    },
+    locationHistory: {
+        "ui:widget": "hidden"
+    },
+    signatures: {
+        "ui:widget": "hidden"
+    },
+    proof: {
+        "ui:widget": "hidden"
+    },
+    walletAddress: {
+        "ui:readonly": true,
+        "ui:disabled": true
+    },
     dob: {
         "ui:options": {
             "inputType": "date",
         }
     },
+
     location: {
-        "ui:readonly": true, "ui:disabled": true,
-        latitude: { "ui:placeholder": "28.6139" },
-        longitude: { "ui:placeholder": "77.2090" }
-    },
-    // all below, are system-managed
-    signatures: { "ui:widget": "hidden" },
-    session: { "ui:widget": "hidden" },
-    locationHistory: { "ui:widget": "hidden" },
-    proof: { "ui:widget": "hidden" }
+        "ui:title": false,
+        latitude: { "ui:readonly": true, "ui:disabled": true, "ui:placeholder": "28.6139" },
+        longitude: { "ui:readonly": true, "ui:disabled": true, "ui:placeholder": "77.2090" }
+    }
 };
