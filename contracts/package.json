@@ -3,5 +3,23 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "hardhat": "^2.24.3"
+  },
+  "config": {
+    "solidity": {
+      "version": "0.8.17"
+    },
+    "paths": {
+      "contracts": "./contracts",
+      "circuits": "../client/src/circuits",
+      "tests": "./test",
+      "cache": "./cache",
+      "build": {
+        "snark": "../client/src/circuits/build/snark",
+        "contracts": "./build/contracts"
+      }
+    },
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
   }
 }
