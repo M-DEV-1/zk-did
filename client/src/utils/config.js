@@ -1,4 +1,4 @@
-"server only"
+"use server"
 
 import { PinataSDK } from "pinata"
 import "dotenv/config"
