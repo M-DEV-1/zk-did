@@ -1,3 +1,11 @@
+/* TODO:
+Currently, this script tests for age >= 18. We want to be able to test for multiple age conditions, which will require a test age input from the Provider.
+
+Example: age >= test-age or age <= test-age
+
+This case allows for us to prove for multiple use cases: Examination Centers, Amusement Parks, Proof of being a sexagenarian (>=60)
+
+*/
 const { expect } = require('chai')
 const { ethers } = require('hardhat')
 const { groth16 } = require('snarkjs')
