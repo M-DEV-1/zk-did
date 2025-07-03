@@ -1,0 +1,13 @@
+# Ignore all build artifacts
+build/
+*.r1cs
+*.wasm
+*.zkey
+*.sym
+*.ptau
+*.json
+
+# Ignore proof and witness files
+*.wtns
+*.proof
+*.public
