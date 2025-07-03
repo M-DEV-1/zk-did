@@ -6,7 +6,7 @@ let cid;
 export async function POST(request) {
   try {
     const formData = await request.json();
-    console.log("Received formData:", formData);
+    // console.log("Received formData:", formData);
 
     if (!formData.walletAddress) {
       console.log("Missing walletAddress");
@@ -19,14 +19,15 @@ export async function POST(request) {
       lang: "json",
     });
 
-    console.log("Upload success:", upload);
+    // console.log("Upload success:", upload);
     cid = upload.cid;
     try {
       async function run() {
         try {
           const { data, contentType } = await pinata.gateways.private.get(cid);
-          console.log("Data:", data);
-          console.log("Content-Type:", contentType);
+          // console.log("Data:", data);
+          // console.log("Content-Type:", contentType);
+          if(!data || !contentType) throw new Error ("Invalid CID. Can't fetch files from IPFS with this CID");
         } catch (err) {
           console.error("Error fetching CID:", err);
         }
