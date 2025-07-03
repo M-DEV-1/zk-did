@@ -16,22 +16,30 @@ export const CustomFieldTemplate = React.memo(function CustomFieldTemplate(props
     help,
     children,
     disabled,
+    schema,
+    uiSchema, // Add this
   } = props;
+
+  // Check if the field is hidden - check uiSchema properly
+  if (uiSchema?.["ui:widget"] === "hidden") {
+    return null;
+  }
 
   return (
     <div className="mb-3 space-y-1">
       {label && (
-        <label htmlFor={id} className={`block text-sm font-medium ${disabled ? 'text-zinc-400 opacity-70' : 'text-white'}`}> 
+        <label
+          htmlFor={id}
+          className={`block text-sm font-medium ${disabled ? 'text-zinc-400 opacity-70' : 'text-white'}`}
+        >
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
-      {description && (
-        <p className="text-xs text-zinc-400">{description}</p>
-      )}
+      {description && <p className="text-xs text-zinc-400">{description}</p>}
       {children}
-      {props.rawErrors?.length > 0 && (
+      {errors?.length > 0 && (
         <ul className="space-y-1 text-xs text-red-500">
-          {props.rawErrors.map((err, i) => (
+          {errors.map((err, i) => (
             <li key={i}>• {err}</li>
           ))}
         </ul>

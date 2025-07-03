@@ -2,6 +2,29 @@
   "name": "contracts",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.24.3"
+    "chai": "^4.3",
+    "circomlib": "^2.0.5",
+    "download": "^8.0.0",
+    "hardhat": "^2.24.3",
+    "rimraf": "^5.0.10",
+    "snarkjs": "^0.7.5"
+  },
+  "config": {
+    "solidity": {
+      "version": "0.8.17"
+    },
+    "paths": {
+      "contracts": "./contracts",
+      "circuits": "../client/src/circuits",
+      "tests": "./test",
+      "cache": "./cache",
+      "build": {
+        "snark": "./circuits/build/snark",
+        "contracts": "./build/contracts"
+      }
+    },
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
   }
 }
