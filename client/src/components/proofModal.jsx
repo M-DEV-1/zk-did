@@ -108,7 +108,7 @@ export default function ProofProgressModal({
         </DialogHeader>
 
         <Progress
-          value={(cid || error ? 3 : steps.findIndex((s) => s.key === currentStep)) / steps.length * 100}
+          value={((cid || error) ? 3 : steps.findIndex((s) => s.key === currentStep)) / steps.length * 100}
           className="h-2 bg-white rounded-lg"
         />
 
