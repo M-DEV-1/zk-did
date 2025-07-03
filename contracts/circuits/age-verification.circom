@@ -11,13 +11,13 @@ template AgeChecker() {
     signal output out;
 
     // 8 = number of bits
-    component greaterThan = GreaterThan(8); 
-    greaterThan.in[0] <== age;
-    greaterThan.in[1] <== 18;
+    component lessThan = LessThan(8); 
+    lessThan.in[0] <== age;
+    lessThan.in[1] <== 18;
+    
+    out <== 1 - lessThan.out;
+    out === 1;
 
-    // out <-- greaterThan.out;
-    // out === 1;
-    out <== greaterThan.out;
 }
 
 component main = AgeChecker();
