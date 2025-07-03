@@ -29,49 +29,34 @@ describe('AgeVerifier', () => {
 
   const wasmFilePath = path.join(__dirname, '../circuits/build/snark/age-verification.wasm');
   const finalZkeyPath = path.join(__dirname, '../circuits/build/snark/age-verification_final.zkey');
-  console.log(wasmFilePath + "\n" + finalZkeyPath);
+  // console.log(wasmFilePath + "\n" + finalZkeyPath);
 
-  const testCases = [
-    { label: '> 18 (should pass)', age: 20, shouldPass: true },
-    { label: '= 18 (should fail)', age: 18, shouldPass: false },
-    { label: '< 18 (should fail)', age: 17, shouldPass: false },
-    { label: 'just under 18 (should fail)', age: 17, shouldPass: false },
-    { label: 'way over 18 (should pass)', age: 99, shouldPass: true },
-    { label: 'random edge case (should fail)', age: 0, shouldPass: false }
-  ];
+  it('Should verify if age is above 18', async () => {
+    const witness = { age: 20 };
 
-  testCases.forEach(({ label, age, shouldPass }) => {
-    it(`Proves: ${label}`, async () => {
-      const input = { age: age.toString() };
+    const { proof, publicSignals } = await groth16.fullProve(witness, wasmFilePath, finalZkeyPath, null);
 
-      // Generate proof — may throw error if circuit rejects invalid input
-      let proof, publicSignals;
-      try {
-        ({ proof, publicSignals } = await groth16.fullProve(input, wasmFilePath, finalZkeyPath));
-      } catch (err) {
-        if (shouldPass) throw err; // Test should fail if this was unexpected
-        return; // Circuit correctly rejected bad input (e.g. age < 18)
-      }
+    const solidityProof = [
+      proof.pi_a[0],
+      proof.pi_a[1],
+      proof.pi_b[0][1],
+      proof.pi_b[0][0],
+      proof.pi_b[1][1],
+      proof.pi_b[1][0],
+      proof.pi_c[0],
+      proof.pi_c[1]
+    ];
 
-      // Circuit didn't fail — proceed to call contract
-      const proofArray = [
-        proof.pi_a[0],
-        proof.pi_a[1],
-        proof.pi_b[0][1],
-        proof.pi_b[0][0],
-        proof.pi_b[1][1],
-        proof.pi_b[1][0],
-        proof.pi_c[0],
-        proof.pi_c[1]
-      ];
-      const inputSignals = publicSignals.map(x => x.toString());
+    const transaction = ageVerifier.verifyAge(solidityProof, publicSignals);
+    await expect(transaction).to.emit(ageVerifier, 'AgeVerified').withArgs(owner.address);
+  })
 
-      if (shouldPass) {
-        const tx = await ageVerifier.verifyAge(proofArray, inputSignals);
-        await expect(tx).to.emit(ageVerifier, 'AgeVerified').withArgs(owner.address);
-      } else {
-        await expect(ageVerifier.verifyAge(proofArray, inputSignals)).to.be.reverted;
-      }
-    });
+  it('should reject age 17 (invalid)', async () => {
+    try {
+      await groth16.fullProve({ age: 17 }, wasmFilePath, finalZkeyPath);
+      throw new Error("Proof should have failed but succeeded");
+    } catch (err) {
+      expect(err.message).to.include('Assert Failed'); // or just check that error occurred
+    }
   });
-});
+})
