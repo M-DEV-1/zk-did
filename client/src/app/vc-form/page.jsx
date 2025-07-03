@@ -9,8 +9,9 @@ import { Fingerprint, ArrowBigRightDashIcon } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { generateAgeProof } from "@/utils/generateAgeProof";
+import ProofProgressModal from "@/components/proofModal";
 
 export default function AadhaarVCForm() {
   const { toast } = useToast();
@@ -20,6 +21,8 @@ export default function AadhaarVCForm() {
   const [submitted, setSubmitted] = useState(false);
   const [signing, setSigning] = useState(false);
   const router = useRouter();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [vcCID, setVcCID] = useState(null);
 
   // temporary function - before "proofs" circuit compilation script is written in 'client'
   const generateEmptyProof = () => ({
@@ -65,20 +68,6 @@ export default function AadhaarVCForm() {
   ];
 
   // temporary helper functions -> remove after session plugin is optional
-  const generateSession = () => ({
-    id: crypto.randomUUID?.() || `session_${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
-    status: "ongoing"
-  });
-
-  const generateLocationHistory = (currentLocation) => ([
-    {
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-      session: generateSession(),
-    }
-  ]);
 
   const handlePrefill = () => {
     const random = Math.floor(Math.random() * mockDataArray.length);
@@ -146,116 +135,77 @@ export default function AadhaarVCForm() {
     }
   };
 
-  const handleSubmit = useCallback(async ({ formData }) => {
-    setIsSubmitting(true);
-    try {
-      const now = new Date();
-      const verifiableCredential = {
-        context: ["https://www.w3.org/2018/credentials/v1"],
-        type: ["VerifiableCredential", "AadhaarCredential"],
-        issuer: "did:example:issuer",
-        issuanceDate: now.toISOString(),
+  const handleSuccess = (cid) => {
+    toast({ title: "Credential uploaded", description: `IPFS CID: ${cid}` });
+    setVcCID(cid);
+    setSubmitted(true);
+  };
 
-        // user-provided data
-        walletAddress: formData.walletAddress,
-        aadhaarId: formData.aadhaarId,
-        name: formData.name,
-        dob: formData.dob,
-        location: formData.location,
-
-        // system-generated data
-        locationHistory: generateLocationHistory(formData.location),
-        signatures: [], // populates after signPayload is triggered
-        proof: generateEmptyProof() //TODO: replace with compile-proof script function
-      };
-
-      const signature = await signPayload(verifiableCredential);
-
-      verifiableCredential.signatures.push({
-        stage: "issue",
-        value: signature,
-        timestamp: new Date().toISOString()
-      });
-
-      const res = await fetch("/api/upload-vc", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(verifiableCredential),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        toast({
-          title: "Credential uploaded",
-          description: `IPFS CID: ${data.cid}`,
-        });
-        setSubmitted(true);
-      } else {
-        throw new Error(data.error || "Upload failed");
-      }
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: err.message || "Unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [signMessageAsync, toast]);
+  const handleSubmit = useCallback(async () => {
+    setModalOpen(true);
+  });
 
   return (
-    <RJSFWrapper
-      title="Issue Aadhaar Verifiable Credential"
-      subtitle="Create a signed credential without revealing private data"
-      icon={<Fingerprint className="w-5 h-5 text-white" />}
-      showBackButton={true}
-    >
-      <Form
-        schema={AadhaarVCSchema}
-        uiSchema={AadhaarVCUISchema}
-        formData={formData}
-        onChange={(e) => setFormData(e.formData)}
-        onSubmit={handleSubmit}
-        showErrorList={false}
-        liveValidate={false}
-        validator={validator}
-        templates={{ FieldTemplate: CustomFieldTemplate }}
+    <>
+      <RJSFWrapper
+        title="Issue Aadhaar Verifiable Credential"
+        subtitle="Create a signed credential without revealing private data"
+        icon={<Fingerprint className="w-5 h-5 text-white" />}
+        showBackButton={true}
       >
-        <div className="pt-2 flex justify-between items-center">
-          <Button type="button" variant="secondary" onClick={handlePrefill} className="text-xs px-3 py-1">
-            Pre-fill
-          </Button>
-          <Button type="submit" variant="secondary" className="min-w-[120px]" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                </svg>
-                {signing ? "Signing..." : isSubmitting ? "Submitting..." : ""}
-              </span>
-            ) : (
-              "Submit"
-            )}
-            {/* ATTENTION
-            it might be nice to have a pop up here, describing what data is collected, and what the users can do with it. a simple, " I understand what this means " popup which can be accessed by the user's later. */}
-          </Button>
-          <div>
-            <Button
-              type="button"
-              variant={submitted ? "secondary" : "default"}
-              size="lg"
-              onClick={submitted ? () => router.push("/dashboard") : undefined}
-              className={cn(!submitted && "text-muted-foreground")}
-              disabled={!submitted}
-            >
-              Next <ArrowBigRightDashIcon />
+        <Form
+          schema={AadhaarVCSchema}
+          uiSchema={AadhaarVCUISchema}
+          formData={formData}
+          onChange={(e) => setFormData(e.formData)}
+          onSubmit={handleSubmit}
+          showErrorList={false}
+          liveValidate={false}
+          validator={validator}
+          templates={{ FieldTemplate: CustomFieldTemplate }}
+        >
+          <div className="pt-2 flex justify-between items-center">
+            <Button type="button" variant="secondary" onClick={handlePrefill} className="text-xs px-3 py-1">
+              Pre-fill
             </Button>
+            <Button type="submit" variant="secondary" className="min-w-[120px]" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  {signing ? "Signing..." : isSubmitting ? "Submitting..." : ""}
+                </span>
+              ) : (
+                "Submit"
+              )}
+              {/* ATTENTION
+            it might be nice to have a pop up here, describing what data is collected, and what the users can do with it. a simple, " I understand what this means " popup which can be accessed by the user's later. */}
+            </Button>
+            <div>
+              <Button
+                type="button"
+                variant={vcCID ? "secondary" : "default"}
+                size="lg"
+                onClick={vcCID ? () => router.push("/dashboard") : undefined}
+                disabled={!vcCID}
+              >
+                Next <ArrowBigRightDashIcon />
+              </Button>
+            </div>
           </div>
-        </div>
-      </Form>
-    </RJSFWrapper>
+        </Form>
+      </RJSFWrapper>
+
+      <ProofProgressModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        formData={formData}
+        onSuccess={handleSuccess}
+        signPayload={signPayload}
+        generateAgeProof={generateAgeProof}
+      />
+    </>
   );
 }
