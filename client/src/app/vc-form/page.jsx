@@ -23,6 +23,18 @@ export default function AadhaarVCForm() {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [vcCID, setVcCID] = useState(null);
+  const [referenceYear, setReferenceYear] = useState(null);
+  const [challenge, setChallenge] = useState(null);
+
+  // Converts a UUID string to a BigInt using SHA-256 | GPT
+  async function uuidToBigInt(uuid) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(uuid);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    return BigInt("0x" + hashHex);
+  }
 
   // temporary function - before "proofs" circuit compilation script is written in 'client'
   const generateEmptyProof = () => ({
@@ -142,6 +154,12 @@ export default function AadhaarVCForm() {
   };
 
   const handleSubmit = useCallback(async () => {
+    const year = new Date().getFullYear();
+    const challengeString = crypto.randomUUID();
+    const challenge = await uuidToBigInt(challengeString);
+
+    setReferenceYear(year);
+    setChallenge(challenge);
     setModalOpen(true);
   });
 
@@ -205,6 +223,8 @@ export default function AadhaarVCForm() {
         onSuccess={handleSuccess}
         signPayload={signPayload}
         generateAgeProof={generateAgeProof}
+        referenceYear={referenceYear}
+        challenge={challenge}
       />
     </>
   );

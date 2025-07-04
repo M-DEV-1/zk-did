@@ -55,6 +55,15 @@ export const AadhaarVCSchema = {
                 longitude: { title: "Longitude", type: "number", minimum: -180, maximum: 180 }
             }
         },
+        challenge: {
+            type: "string",
+            title: "Challenge",
+        },
+        referenceYear: {
+            type: "number",
+            title: "Reference Year",
+            minimum: 1900, maximum: 2100
+        },
 
         /** === Extra, mutable =========================================== **/
 
@@ -154,6 +163,12 @@ export const AadhaarVCUISchema = {
         "ui:widget": "hidden"
     },
     proof: {
+        "ui:widget": "hidden"
+    },
+    challenge: {
+        "ui:widget": "hidden"
+    },
+    referenceYear: {
         "ui:widget": "hidden"
     },
     walletAddress: {
