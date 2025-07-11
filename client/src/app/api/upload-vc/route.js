@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { pinata } from "@/utils/config";
+import dbConnect from "@/utils/db/db";
+import User from "@/utils/db/models";
 
 let cid;
 
@@ -32,11 +34,21 @@ export async function POST(request) {
           console.error("Error fetching CID:", err);
         }
       }
-
       run();
     } catch (e) {
       console.error("failed to fetch stuff from ipfs cloud");
     }
+
+    // Store in MongoDB
+    try {
+      await dbConnect();
+      await User.create({ name: formData.name, walletAddress: formData.walletAddress, cid });
+      console.log("Stored CID in MongoDB");
+    } catch (dbErr) {
+      console.error("MongoDB store error:", dbErr);
+      // Optionally, return error or continue
+    }
+
     return NextResponse.json({ cid: upload.cid }, { status: 200 });
   } catch (e) {
     console.error("Pinata upload error:", e);
