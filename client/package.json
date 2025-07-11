@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npm run compile-circuits && next dev",
-    "compile-circuits": "cd ../contracts && npm install && node scripts/compile-circuits.js && cd ../client",
+    "compile-circuits": "cd ../contracts && npm install && node scripts/compile-circuits.js && node scripts/compile-location.js && cd ../client",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

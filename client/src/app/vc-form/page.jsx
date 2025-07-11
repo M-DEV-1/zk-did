@@ -48,14 +48,34 @@ export default function AadhaarVCForm() {
 
   // initialize user-facing fields
   const [formData, setFormData] = useState({
-    walletAddress: "",
-    aadhaarId: "",
-    name: "",
-    dob: "",
-    location: { latitude: 0, longitude: 0 },
-    proof: generateEmptyProof()
-    // hidden fields are populated before submit
+    "@context": ["https://www.w3.org/2018/credentials/v1"],
+    type: ["VerifiableCredential"],
+    issuer: "did:example:issuer", // set a dummy DID or real one
+    issuanceDate: new Date().toISOString(),
+    zkProof: {
+      protocol: "groth16",
+      curve: "bn128",
+      pi_a: ["", "", ""],
+      pi_b: [["", ""], ["", ""], ["", ""]],
+      pi_c: ["", "", ""],
+      publicSignals: []
+    },
+    proof: {
+      type: "",
+      created: new Date().toISOString(),
+      proofPurpose: "",
+      verificationMethod: "",
+      jws: ""
+    },
+    credentialSubject: {
+      walletAddress: "",
+      aadhaarId: "",
+      name: "",
+      dob: "",
+      location: { latitude: 0, longitude: 0 }
+    }
   });
+  
 
   // Mock data array for pre-fill
   const mockDataArray = [
@@ -85,15 +105,18 @@ export default function AadhaarVCForm() {
     const random = Math.floor(Math.random() * mockDataArray.length);
     setFormData((prev) => ({
       ...prev,
-      ...mockDataArray[random],
-      walletAddress: address,
+      credentialSubject: {
+        ...prev.credentialSubject,
+        ...mockDataArray[random],
+        walletAddress: address
+      }
     }));
   };
 
   // set wallet address on every switch
   useEffect(() => {
     if (address) {
-      setFormData((prev) => ({ ...prev, walletAddress: address }));
+      setFormData((prev) => ({ ...prev, credentialSubject: { ...prev.credentialSubject, walletAddress: address } }));
     }
   }, [address]);
 
@@ -111,11 +134,14 @@ export default function AadhaarVCForm() {
       (pos) => {
         setFormData((prev) => ({
           ...prev,
-          location: {
-            ...prev.location,
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          },
+          credentialSubject: {
+            ...prev.credentialSubject,
+            location: {
+              ...prev.credentialSubject.location,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude
+            }
+          }
         }));
       },
       (err) => {

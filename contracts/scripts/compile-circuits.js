@@ -68,7 +68,7 @@ const main = async () => {
       `pragma solidity ^${solidityVersion}`
     );
 
-    fs.writeFileSync(`${config.paths.contracts}/Verifier.sol`, verifierCode, 'utf-8')
+    fs.writeFileSync(`${config.paths.contracts}/VerifierAge.sol`, verifierCode, 'utf-8')
 
     // export verification key
     const verificationKey = await zKey.exportVerificationKey(
@@ -76,7 +76,7 @@ const main = async () => {
       console
     );
     fs.writeFileSync(
-      `${buildPath}/verification_key.json`,
+      `${buildPath}/age-verification_key.json`,
       JSON.stringify(verificationKey),
       'utf-8'
     );

@@ -16,8 +16,8 @@ export async function generateAgeProof(dob, referenceYear, challenge) {
     throw new Error("Invalid date of birth format.");
   }
 
-  const birthYear = new Date(dob).getUTCFullYear();
-  if (birthYear < 1900 || birthYear > referenceYear) {
+  const dobYear = new Date(dob).getUTCFullYear();
+  if (dobYear < 1900 || dobYear > referenceYear) {
     throw new Error("Unrealistic year of birth.");
   }
 
