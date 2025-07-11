@@ -55,6 +55,11 @@ export default function ProviderDashboard() {
   const [statusFilter, setStatusFilter] = useState([]);
   const [sortBy, setSortBy] = useState("requestTime");
   const [sortDir, setSortDir] = useState("desc");
+  const [showResignModal, setShowResignModal] = useState(false);
+  const [pendingResignVC, setPendingResignVC] = useState(null);
+  const [pendingResignStatus, setPendingResignStatus] = useState("");
+  const [pendingResignRequest, setPendingResignRequest] = useState(null);
+  const [isResigning, setIsResigning] = useState(false);
 
   const clearAllRequests = () => {
     localStorage.removeItem('allRequests');
@@ -179,6 +184,46 @@ export default function ProviderDashboard() {
     }
   };
 
+  // Handler for Complete/Revoke
+  const handleSessionUpdate = async (req, status) => {
+    // Mock VC and session info for demo
+    const vc = {
+      walletAddress: req.user.aadhaarId,
+      issuer: req.providerId,
+      locationHistory: req.locationHistory || [],
+      challenge: req.challenge || "old-challenge"
+    };
+    const session = {
+      id: req.id,
+      createdAt: new Date(req.requestTime).toISOString(),
+      expiresAt: new Date(req.timerEnd).toISOString()
+    };
+    // Mock location (could use real geolocation)
+    const location = { latitude: 28.6139, longitude: 77.2090 };
+    setIsResigning(true);
+    try {
+      const response = await fetch("/api/vc-session-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vc, session, status, location })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPendingResignVC(data.updatedVC);
+        setPendingResignStatus(status);
+        setPendingResignRequest(req);
+        setShowResignModal(true);
+      } else {
+        const err = await response.json();
+        toast({ title: "Error", description: err.error || "Failed to update session", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setIsResigning(false);
+    }
+  };
+
   // Timer/status update
   useEffect(() => {
     const interval = setInterval(() => {
@@ -294,6 +339,13 @@ export default function ProviderDashboard() {
                         {req.status === "Completed" && <span className="text-green-400">Completed</span>}
                         {req.status === "Rejected" && <span className="text-red-400">Rejected</span>}
                         {req.status === "Revoked" && <span className="text-purple-400">Revoked</span>}
+                        {/* Action buttons for Complete/Revoke */}
+                        {(req.status === "Ongoing" || req.status === "Pending") && (
+                          <div className="flex gap-2 mt-2">
+                            <Button size="sm" variant="success" disabled={isResigning} onClick={() => handleSessionUpdate(req, "completed")}>Complete</Button>
+                            <Button size="sm" variant="destructive" disabled={isResigning} onClick={() => handleSessionUpdate(req, "revoked")}>Revoke</Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -332,6 +384,21 @@ export default function ProviderDashboard() {
             <Button onClick={handleSendRequest} disabled={isSending} className="w-full py-2 text-base font-semibold">
               {isSending ? "Sending..." : "Send Request"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* update this modal with proof generation logic for location */}
+      <Dialog open={showResignModal} onOpenChange={setShowResignModal}>
+        <DialogContent className="text-white bg-zinc-900 border-zinc-800 max-w-lg w-full p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Re-sign VC ({pendingResignStatus})</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-zinc-300">A new challenge and session ID have been generated. Please re-sign the updated VC to complete this action.</div>
+            <pre className="bg-zinc-800 rounded p-2 text-xs overflow-x-auto max-h-48">{JSON.stringify(pendingResignVC, null, 2)}</pre>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button onClick={() => setShowResignModal(false)} className="w-full py-2 text-base font-semibold">Sign (stub)</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

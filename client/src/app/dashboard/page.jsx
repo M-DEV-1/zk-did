@@ -16,6 +16,9 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import ConsentModal from "@/components/ConsentModal";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { useSignMessage } from "wagmi";
+import { generateAgeProof } from "@/utils/generateAgeProof";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 // Mock providers for Bharat Stack use cases
 // Only using fields that exist in vcSchema.js: aadhaarId, name, dob, location
@@ -113,6 +116,83 @@ export default function UserDashboard() {
   // Session timer management
   const [sessionTimers, setSessionTimers] = useState({});
   const [timerUpdate, setTimerUpdate] = useState(0); // Force re-render for timer updates
+
+  const { signMessageAsync } = useSignMessage();
+  const [showResignModal, setShowResignModal] = useState(false);
+  const [pendingResignRequest, setPendingResignRequest] = useState(null);
+  const [resignStep, setResignStep] = useState("proof");
+  const [resignError, setResignError] = useState(null);
+  const [resignSuccess, setResignSuccess] = useState(false);
+  const [resignCID, setResignCID] = useState(null);
+
+  // Helper: Check if a VC has a complete/revoke signature
+  const hasResignSignature = (req) => {
+    if (!req.signatures) return false;
+    return req.signatures.some(sig => ["complete", "revoke"].includes(sig.stage));
+  };
+
+  // Handler for Re-sign
+  const handleResign = async (req) => {
+    setShowResignModal(true);
+    setPendingResignRequest(req);
+    setResignStep("proof");
+    setResignError(null);
+    setResignSuccess(false);
+    setResignCID(null);
+    try {
+      // 1. Generate ZK proof (location proof for demo, use dob for age if needed)
+      const referenceYear = new Date().getFullYear();
+      const dob = req.dob || (req.user && req.user.dob) || "1990-01-01";
+      let challenge = req.challenge;
+      if (!challenge) {
+        // Generate a random challenge as a BigInt from UUID
+        challenge = BigInt('0x' + crypto.randomUUID().replace(/-/g, ''));
+      } else if (typeof challenge === 'string' && !/^[0-9]+$/.test(challenge)) {
+        // Try to convert string challenge to BigInt if possible
+        try {
+          challenge = BigInt(challenge);
+        } catch {
+          challenge = BigInt('0x' + challenge.replace(/-/g, ''));
+        }
+      }
+      const zkProof = await generateAgeProof(dob, referenceYear, challenge);
+      setResignStep("sign");
+      // 2. Build updated VC
+      const updatedVC = {
+        ...req,
+        proof: zkProof,
+        referenceYear,
+      };
+      // 3. Sign the updated VC
+      const signature = await signMessageAsync({ message: JSON.stringify(updatedVC) });
+      updatedVC.signatures = [
+        ...(updatedVC.signatures || []),
+        {
+          stage: req.status === "Completed" ? "complete" : "revoke",
+          value: signature,
+          timestamp: new Date().toISOString(),
+        },
+      ];
+      setResignStep("upload");
+      // 4. Upload the VC
+      const res = await fetch("/api/upload-vc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedVC),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      setResignCID(data.cid);
+      setResignSuccess(true);
+      setResignStep("done");
+      toast({ title: "VC Updated", description: `IPFS CID: ${data.cid}` });
+      // Optionally update local state/UI here
+      setShowResignModal(false);
+    } catch (e) {
+      setResignError(e.message || "Unexpected error");
+      setResignStep("error");
+    }
+  };
 
   useEffect(() => {
     // Load existing requests from localStorage on mount
@@ -313,6 +393,7 @@ export default function UserDashboard() {
                 ) : (
                   allRequests.map((provider) => {
                     const sessionStatus = getSessionStatus(provider);
+                    const needsResign = ["Completed", "Revoked"].includes(provider.status) && !hasResignSignature(provider);
                     return (
                       <TableRow key={provider.id} className="border-zinc-800 hover:bg-zinc-800/50">
                         <TableCell className="font-medium text-white">
@@ -369,6 +450,13 @@ export default function UserDashboard() {
                             </span>
                           )}
                         </TableCell>
+                        <TableCell>
+                          {needsResign && (
+                            <Button type="button" variant="secondary" className="min-w-[120px]" onClick={() => handleResign(provider)}>
+                              Re-sign
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })
@@ -385,6 +473,42 @@ export default function UserDashboard() {
         onReject={handleConsentRejected}
         providerData={currentProviderData}
       />
+      {/* Modal for re-signing VC */}
+      <Dialog open={showResignModal} onOpenChange={(open) => {
+        setShowResignModal(open);
+        if (!open && !resignSuccess) {
+          toast({
+            title: "Re-signing Required",
+            description: "You must re-sign your credential. If you close this without signing, you will be barred from further authentication.",
+            variant: "destructive",
+          });
+        }
+      }}>
+        <DialogContent className="text-white bg-zinc-900 border-zinc-800 max-w-lg w-full p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Re-sign VC ({pendingResignRequest?.status})</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {resignStep === "proof" && <div className="text-sm text-zinc-300">Generating ZK Proof...</div>}
+            {resignStep === "sign" && <div className="text-sm text-zinc-300">Signing updated VC...</div>}
+            {resignStep === "upload" && <div className="text-sm text-zinc-300">Uploading VC to IPFS...</div>}
+            {resignStep === "done" && <div className="text-green-400">VC updated and uploaded! CID: {resignCID}</div>}
+            {resignStep === "error" && <div className="text-red-400">Error: {resignError}</div>}
+            <pre className="bg-zinc-800 rounded p-2 text-xs overflow-x-auto max-h-48">{JSON.stringify(pendingResignRequest, null, 2)}</pre>
+            <div className="text-xs text-red-400">If you do not re-sign, you will be <b>barred from further authentication</b>.</div>
+          </div>
+          <DialogFooter className="mt-6">
+            {resignStep !== "done" && resignStep !== "error" && (
+              <Button onClick={async () => await handleResign(pendingResignRequest)} className="w-full py-2 text-base font-semibold">
+                {resignStep === "proof" ? "Sign & Upload" : resignStep === "sign" ? "Signing..." : resignStep === "upload" ? "Uploading..." : "Sign & Upload"}
+              </Button>
+            )}
+            {(resignStep === "done" || resignStep === "error") && (
+              <Button onClick={() => setShowResignModal(false)} className="w-full py-2 text-base font-semibold">Close</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

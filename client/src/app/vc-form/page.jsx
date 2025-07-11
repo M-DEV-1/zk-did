@@ -151,6 +151,11 @@ export default function AadhaarVCForm() {
     toast({ title: "Credential uploaded", description: `IPFS CID: ${cid}` });
     setVcCID(cid);
     setSubmitted(true);
+    // temporary storage | will connect DB or some other mechanism
+    const name = formData.name || "Unknown"; // this line is an example of why we should do typescript
+    const storedProofs = JSON.parse(localStorage.getItem("userProofCIDs") || "[]");
+    storedProofs.push({ name, cid });
+    localStorage.setItem("userProofCIDs", JSON.stringify(storedProofs));
   };
 
   const handleSubmit = useCallback(async () => {
