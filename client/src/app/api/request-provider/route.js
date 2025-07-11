@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAvailableFields, validateFields } from '@/lib/schemas/fieldMapping';
+import { SignJWT } from 'jose';
+import { v4 as uuidv4 } from 'uuid';
+
+// will create seperate secret for each provider
+const JWT_SECRET = new TextEncoder().encode('super-secret-key');
 
 export async function POST(request) {
   try {
@@ -41,10 +46,22 @@ export async function POST(request) {
       );
     }
 
-    // Generate unique request ID using timestamp + random string + provider ID
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 15);
-    const uniqueRequestId = `req_${timestamp}_${randomString}_${provider.providerId}`;
+    // generate secure uuid for request/session id
+    const sessionId = uuidv4();
+
+    // 5 minutes challenge
+    const now = Math.floor(Date.now() / 1000);
+    const challengePayload = {
+      sub: walletAddress,
+      providerId: provider.providerId,
+      sessionId,
+      nonce: uuidv4(),
+      iat: now,
+      exp: now + 300 // 5 minutes
+    };
+    const challenge = await new SignJWT(challengePayload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(JWT_SECRET);
 
     // In a real application, you might:
     // 1. Validate the provider against a registry
@@ -63,14 +80,15 @@ export async function POST(request) {
         requestedFields: fieldValidation.validFields, // Only valid fields
         sessionDuration: provider.sessionDuration || 30000, // 30 seconds default
         providerId: provider.providerId,
-        requestId: uniqueRequestId, // Unique request ID
+        requestId: sessionId, // Use UUID as request/session ID
+        challenge, // Verifiable JWT challenge
         category: provider.category,
         // Additional metadata
         timestamp: new Date().toISOString(),
         requestMetadata: {
           totalFields: fieldValidation.validFields.length,
           requestedAt: new Date().toISOString(),
-          sessionId: `${provider.providerId}_${uniqueRequestId}_${timestamp}` // Unique session ID
+          sessionId // Unique session ID
         }
       }
     });
