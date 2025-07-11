@@ -42,7 +42,7 @@ export async function generateAgeProof(dob, referenceYear, challenge) {
   }
 
   const input = {
-    birthYear,           // private
+    dobYear: birthYear,           // private, must match circuit
     referenceYear,     
     challenge          
   };
