@@ -24,7 +24,7 @@ const { zKey } = require("snarkjs");
 const { config } = require("../package.json");
 const { asyncExec } = require("./utils");
 
-const circuits = ["age-verification", "location-proof"];  
+const circuits = ["age", "location"];  
 const ptauPath = `./circuits/powersoftau/powersOfTau28_hez_final_14.ptau`;
 const buildPath = config.paths.build.snark;
 const solidityVersion = config.solidity.version;

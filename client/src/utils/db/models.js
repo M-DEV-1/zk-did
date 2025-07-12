@@ -1,5 +1,4 @@
 import mongoose, { Schema } from "mongoose";
-import bcrypt from "bcrypt";
 
 const ObjectId = Schema.Types.ObjectId;
 
@@ -11,20 +10,8 @@ const UserSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
 }); // validate input later
 
-UserSchema.pre("save", async (next) => {
-  if (this.isModified("aadhar")) {
-    await bcrypt.hash(this.aadhar, 10, (err, hashedAadhar) => {
-      if (err) return next(err);
-      this.aadhar = hashedAadhar;
-      next();
-    });
-  } else {
-    next();
-  }
-})
-
 const VerificationKeySchema = new Schema({
-  circuitName: { type: String, required: true, unique: true }, // "age-verification"
+  circuitName: { type: String, required: true, unique: true }, // "age"
   key: { type: Object, required: true }, // the actual verification key JSON
   updatedAt: { type: Date, default: Date.now },
 })

@@ -22,8 +22,8 @@ export async function generateAgeProof(dob, referenceYear, challenge) {
   }
 
   // TODO: make sure these files are "not tampered" with, implementing checksumming or signing would be a good idea
-  const wasmUrl = "/api/snark-artifacts/age-verification.wasm";
-  const zkeyUrl = "/api/snark-artifacts/age-verification_final.zkey";
+  const wasmUrl = "/api/snark-artifacts/age.wasm";
+  const zkeyUrl = "/api/snark-artifacts/age_final.zkey";
 
   // check if wasm + zkey exist and are accessible
   const [wasmResp, zkeyResp] = await Promise.all([
@@ -34,11 +34,11 @@ export async function generateAgeProof(dob, referenceYear, challenge) {
   console.log("wasmResp: " + wasmResp + "\nzkeyResp: " + zkeyResp);
 
   if (!wasmResp.ok) {
-    throw new Error("Missing or inaccessible age-verification.wasm. Did you compile the circuit?");
+    throw new Error("Missing or inaccessible age.wasm. Did you compile the circuit?");
   }
 
   if (!zkeyResp.ok) {
-    throw new Error("Missing or inaccessible age-verification_final.zkey. Did you run compile-circuits?");
+    throw new Error("Missing or inaccessible age_final.zkey. Did you run compile-circuits?");
   }
 
   const input = {

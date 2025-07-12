@@ -27,8 +27,8 @@ describe('AgeVerifier', () => {
     ageVerifier = await AgeVerifier.deploy(verifierAddress)
   })
 
-  const wasmFilePath = path.join(__dirname, '../circuits/build/snark/age-verification.wasm');
-  const finalZkeyPath = path.join(__dirname, '../circuits/build/snark/age-verification_final.zkey');
+  const wasmFilePath = path.join(__dirname, '../circuits/build/snark/age.wasm');
+  const finalZkeyPath = path.join(__dirname, '../circuits/build/snark/age_final.zkey');
   // console.log(wasmFilePath + "\n" + finalZkeyPath);
 
   it('Should verify if age is above 18', async () => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { pinata } from "@/utils/config";
 import dbConnect from "@/utils/db/db";
 import User from "@/utils/db/models";
+import bcrypt from "bcrypt";
 
 let cid;
 
@@ -33,7 +34,7 @@ export async function POST(request) {
           const { data, contentType } = await pinata.gateways.private.get(cid);
           console.log("Data:", data);
           console.log("Content-Type:", contentType);
-          if(!data || !contentType) throw new Error ("Invalid CID. Can't fetch files from IPFS with this CID");
+          if (!data || !contentType) throw new Error("Invalid CID. Can't fetch files from IPFS with this CID");
         } catch (err) {
           console.error("Error fetching CID:", err);
         }
@@ -46,7 +47,11 @@ export async function POST(request) {
     // store in MongoDB
     try {
       await dbConnect();
-      await User.create({ name: formData.credentialSubject.name, walletAddress: formData.credentialSubject.walletAddress, cid });
+      await User.create({ 
+        name: formData.credentialSubject.name,
+        walletAddress: formData.credentialSubject.walletAddress, 
+        cid,
+        aadhar: await bcrypt.hash(formData.credentialSubject.aadharId, 15)});
       console.log("Stored CID in MongoDB");
     } catch (dbErr) {
       console.error("MongoDB store error:", dbErr);

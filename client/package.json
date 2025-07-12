@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npm run compile-circuits && npm run store-keys && next dev",
-    "compile-circuits": "cd ../contracts && npm install && node scripts/compile-circuits.js && node scripts/compile-location.js && cd ../client",
+    "compile-circuits": "cd ../contracts && npm install && node scripts/compile-circuits.js && cd ../client",
     "store-keys": "node ./scripts/storeVerificationKey.mjs",
     "build": "next build",
     "start": "next start",
