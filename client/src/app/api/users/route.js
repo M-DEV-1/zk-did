@@ -8,7 +8,7 @@ export async function GET() {
     await dbConnect();
     console.log("Connected to database");
     
-    const users = await User.find({}).sort({ createdAt: -1 });
+    const users = await User.User.find({}).sort({ createdAt: -1 });
     
     if (!users || users.length === 0) {
       return NextResponse.json({ users: [] }, { status: 200 });

@@ -3,17 +3,23 @@ import { getAvailableFields, validateFields } from '@/lib/schemas/fieldMapping';
 import { SignJWT } from 'jose';
 import { v4 as uuidv4 } from 'uuid';
 
+import dbConnect from '@/utils/db/db';
+import Models from '@/utils/db/models';
+
 // will create seperate secret for each provider
 const JWT_SECRET = new TextEncoder().encode('super-secret-key');
 
 export async function POST(request) {
   try {
-    const { walletAddress, provider, requestedFields } = await request.json();
+
+    await dbConnect();
+
+    const { cid, provider, requestedFields } = await request.json();
 
     // Validate required fields
-    if (!walletAddress) {
+    if (!cid) {
       return NextResponse.json(
-        { error: 'Wallet address is required' },
+        { error: 'CID is required' },
         { status: 400 }
       );
     }
@@ -34,10 +40,10 @@ export async function POST(request) {
 
     // Validate requested fields against actual schema
     const fieldValidation = validateFields(requestedFields);
-    
+
     if (!fieldValidation.isValid) {
       return NextResponse.json(
-        { 
+        {
           error: `Invalid fields requested: ${fieldValidation.invalidFields.join(', ')}`,
           availableFields: getAvailableFields(),
           validFields: fieldValidation.validFields
@@ -49,10 +55,16 @@ export async function POST(request) {
     // generate secure uuid for request/session id
     const sessionId = uuidv4();
 
+    // Fetch user from DB to get name and cid
+    const userDoc = await Models.User.findOne({ cid });
+    if (!userDoc) {
+      return NextResponse.json({ error: "User not found in database" }, { status: 404 });
+    }
+
     // 5 minutes challenge
     const now = Math.floor(Date.now() / 1000);
     const challengePayload = {
-      sub: walletAddress,
+      sub: userDoc.walletAddress,
       providerId: provider.providerId,
       sessionId,
       nonce: uuidv4(),
@@ -63,12 +75,23 @@ export async function POST(request) {
       .setProtectedHeader({ alg: 'HS256' })
       .sign(JWT_SECRET);
 
-    // In a real application, you might:
-    // 1. Validate the provider against a registry
-    // 2. Check rate limits
-    // 3. Store the pending request in a database
-    // 4. Send a notification to the user (WebSocket, push notification, etc.)
-    // 5. Generate a unique request ID for tracking
+    await Models.Requests.create({
+      sessionId,
+      user: {
+        name: userDoc.name,
+        cid: userDoc.cid,
+        walletAddress: userDoc.walletAddress,
+      },
+      proofType: Array.isArray(requestedFields) && requestedFields.includes("location")
+        ? ["location"]
+        : ["age"],
+      requestedFields: fieldValidation.validFields,
+      requestTime: new Date(),
+      status: "Pending",
+      timerEnd: new Date(Date.now() + (provider.sessionDuration || 30000)),
+      proofStatus: "awaited"
+    });
+
 
     // For now, we'll return the provider data to be handled by the frontend
     return NextResponse.json({
@@ -83,8 +106,6 @@ export async function POST(request) {
         requestId: sessionId, // Use UUID as request/session ID
         challenge, // Verifiable JWT challenge
         category: provider.category,
-        // Additional metadata
-        timestamp: new Date().toISOString(),
         requestMetadata: {
           totalFields: fieldValidation.validFields.length,
           requestedAt: new Date().toISOString(),

@@ -21,7 +21,7 @@ import { generateAgeProof } from "@/utils/generateAgeProof";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 // Mock providers for Bharat Stack use cases
-// Only using fields that exist in vcSchema.js: aadhaarId, name, dob, location
+// Only using fields that exist in vcSchema.js: walletAddress, name, dob, location
 const MOCK_PROVIDERS = [
   {
     name: "Voting Booth System",
@@ -35,7 +35,7 @@ const MOCK_PROVIDERS = [
     name: "UPI Payment Gateway",
     description: "Verify your identity for secure UPI transactions and KYC compliance.",
     providerId: "upi_gateway_001",
-    requestedFields: ["name", "aadhaarId"],
+    requestedFields: ["name", "walletAddress"],
     sessionDuration: 30000,
     category: "Finance"
   },
@@ -43,7 +43,7 @@ const MOCK_PROVIDERS = [
     name: "DigiLocker",
     description: "Access your digital documents and certificates securely.",
     providerId: "digilocker_001",
-    requestedFields: ["name", "dob", "aadhaarId"],
+    requestedFields: ["name", "dob", "walletAddress"],
     sessionDuration: 30000,
     category: "Government"
   },
@@ -51,7 +51,7 @@ const MOCK_PROVIDERS = [
     name: "CoWIN Portal",
     description: "Verify vaccination status and schedule appointments.",
     providerId: "cowin_001",
-    requestedFields: ["name", "dob", "aadhaarId"],
+    requestedFields: ["name", "dob", "walletAddress"],
     sessionDuration: 30000,
     category: "Healthcare"
   },
@@ -59,7 +59,7 @@ const MOCK_PROVIDERS = [
     name: "Aadhaar Authentication",
     description: "Biometric authentication for government services.",
     providerId: "aadhaar_auth_001",
-    requestedFields: ["aadhaarId", "location"],
+    requestedFields: ["walletAddress", "location"],
     sessionDuration: 30000,
     category: "Government"
   },
@@ -67,7 +67,7 @@ const MOCK_PROVIDERS = [
     name: "Bank KYC Verification",
     description: "Complete your Know Your Customer verification for banking services.",
     providerId: "bank_kyc_001",
-    requestedFields: ["name", "dob", "aadhaarId"],
+    requestedFields: ["name", "dob", "walletAddress"],
     sessionDuration: 30000,
     category: "Finance"
   },
@@ -75,7 +75,7 @@ const MOCK_PROVIDERS = [
     name: "GST Portal",
     description: "Business registration and tax filing verification.",
     providerId: "gst_portal_001",
-    requestedFields: ["name", "aadhaarId"],
+    requestedFields: ["name", "walletAddress"],
     sessionDuration: 30000,
     category: "Business"
   },
@@ -91,7 +91,7 @@ const MOCK_PROVIDERS = [
     name: "Ayushman Bharat",
     description: "Health insurance verification and claim processing.",
     providerId: "ayushman_001",
-    requestedFields: ["name", "dob", "aadhaarId"],
+    requestedFields: ["name", "dob", "walletAddress"],
     sessionDuration: 30000,
     category: "Healthcare"
   },
@@ -99,7 +99,7 @@ const MOCK_PROVIDERS = [
     name: "e-Court Services",
     description: "Access court documents and case status verification.",
     providerId: "ecourt_001",
-    requestedFields: ["name", "aadhaarId"],
+    requestedFields: ["name", "walletAddress"],
     sessionDuration: 30000,
     category: "Legal"
   }
@@ -196,25 +196,37 @@ export default function UserDashboard() {
 
   useEffect(() => {
     // Load existing requests from localStorage on mount
-    const saved = localStorage.getItem('allRequests');
-    if (saved) {
-      setAllRequests(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem('allRequests');
+      if (saved) {
+        const parsedRequests = JSON.parse(saved);
+        setAllRequests(parsedRequests);
+        console.log(`Loaded ${parsedRequests.length} requests from localStorage`);
+      }
+    } catch (error) {
+      console.error("Error loading requests from localStorage:", error);
+      // Don't use toast here as it might not be available during initial load
     }
-  }, []);
+  }, []); // Remove toast dependency to avoid issues
 
   // Listen for storage events to update requests in real time
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'allRequests') {
-        setAllRequests(JSON.parse(e.newValue || '[]'));
+        try {
+          const updatedRequests = JSON.parse(e.newValue || '[]');
+          setAllRequests(updatedRequests);
+        } catch (error) {
+          console.error("Error parsing storage event data:", error);
+        }
       }
     };
     window.addEventListener('storage', handler);
     return () => window.removeEventListener('storage', handler);
   }, []);
 
-  // Filter requests for the current user (by walletAddress/aadhaarId)
-  const userRequests = allRequests.filter(req => req.user?.aadhaarId === address);
+  // Filter requests for the current user (by walletAddress)
+  const userRequests = allRequests.filter(req => req.user?.walletAddress === address);
 
   // Save timers to localStorage whenever they change
   useEffect(() => {
@@ -242,71 +254,163 @@ export default function UserDashboard() {
 
   // Clear all requests from localStorage
   const clearAllRequests = () => {
-    localStorage.removeItem('allRequests');
-    setAllRequests([]);
-    toast({ title: 'All requests cleared' });
+    try {
+      localStorage.removeItem('allRequests');
+      setAllRequests([]);
+      toast({ title: 'All requests cleared' });
+    } catch (error) {
+      console.error("Error clearing requests:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to clear requests", 
+        variant: "destructive" 
+      });
+    }
   };
 
   // Approve consent: update status, approvedFields, timer
   const handleConsentApproved = (approvedFields) => {
-    if (!currentProviderData) return;
-    const updatedRequests = allRequests.map(req =>
-      req.id === currentProviderData.id
-        ? {
-            ...req,
-            status: "Ongoing",
-            approvedFields,
-            timerEnd: Date.now() + 60000, // 1 minute
-          }
-        : req
-    );
-    setAllRequests(updatedRequests);
-    localStorage.setItem("allRequests", JSON.stringify(updatedRequests));
-    setShowConsentModal(false);
-    setCurrentProviderData(null);
-    toast({
-      title: "Consent Approved",
-      description: `Session started with ${currentProviderData.name}`,
-    });
+    try {
+      if (!currentProviderData) {
+        console.error("No current provider data available");
+        return;
+      }
+      
+      console.log(`Approving consent for provider: ${currentProviderData.name}`);
+      
+      const updatedRequests = allRequests.map(req =>
+        req.id === currentProviderData.id
+          ? {
+              ...req,
+              status: "Ongoing",
+              approvedFields,
+              timerEnd: Date.now() + 60000, // 1 minute
+              proofStatus: "awaited", // Set proof status to awaited when approved
+            }
+          : req
+      );
+      
+      setAllRequests(updatedRequests);
+      
+      try {
+        localStorage.setItem("allRequests", JSON.stringify(updatedRequests));
+      } catch (error) {
+        console.error("Error saving to localStorage:", error);
+        toast({ 
+          title: "Warning", 
+          description: "Request approved but failed to save locally", 
+          variant: "destructive" 
+        });
+      }
+      
+      setShowConsentModal(false);
+      setCurrentProviderData(null);
+      toast({
+        title: "Consent Approved",
+        description: `Session started with ${currentProviderData.name}`,
+      });
+      
+    } catch (error) {
+      console.error("Error approving consent:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to approve consent", 
+        variant: "destructive" 
+      });
+    }
   };
 
   // Reject consent: update status
   const handleConsentRejected = () => {
-    if (!currentProviderData) return;
-    const updatedRequests = allRequests.map(req =>
-      req.id === currentProviderData.id
-        ? { ...req, status: "Rejected" }
-        : req
-    );
-    setAllRequests(updatedRequests);
-    localStorage.setItem("allRequests", JSON.stringify(updatedRequests));
-    setShowConsentModal(false);
-    setCurrentProviderData(null);
-    toast({
-      title: "Consent Rejected",
-      description: "No data will be shared",
-      variant: "destructive",
-    });
+    try {
+      if (!currentProviderData) {
+        console.error("No current provider data available");
+        return;
+      }
+      
+      console.log(`Rejecting consent for provider: ${currentProviderData.name}`);
+      
+      const updatedRequests = allRequests.map(req =>
+        req.id === currentProviderData.id
+          ? { ...req, status: "Rejected" }
+          : req
+      );
+      
+      setAllRequests(updatedRequests);
+      
+      try {
+        localStorage.setItem("allRequests", JSON.stringify(updatedRequests));
+      } catch (error) {
+        console.error("Error saving to localStorage:", error);
+        toast({ 
+          title: "Warning", 
+          description: "Request rejected but failed to save locally", 
+          variant: "destructive" 
+        });
+      }
+      
+      setShowConsentModal(false);
+      setCurrentProviderData(null);
+      toast({
+        title: "Consent Rejected",
+        description: "No data will be shared",
+        variant: "destructive",
+      });
+      
+    } catch (error) {
+      console.error("Error rejecting consent:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to reject consent", 
+        variant: "destructive" 
+      });
+    }
   };
 
   // Revoke session: set status to 'Revoked' (only if active)
   const revokeSession = (providerId) => {
-    const updatedRequests = allRequests.map(req => {
-      if (req.id === providerId) {
-        // Only allow revoke if not expired/completed/revoked
-        const now = Date.now();
-        if (req.status === "Ongoing" && req.timerEnd > now) {
-          return { ...req, status: "Revoked" };
+    try {
+      console.log(`Revoking session for provider: ${providerId}`);
+      
+      const updatedRequests = allRequests.map(req => {
+        if (req.id === providerId) {
+          // Only allow revoke if not expired/completed/revoked
+          const now = Date.now();
+          if (req.status === "Ongoing" && req.timerEnd > now) {
+            return { ...req, status: "Revoked" };
+          } else {
+            console.log(`Cannot revoke session ${req.id}: status=${req.status}, expired=${now >= req.timerEnd}`);
+          }
         }
+        return req;
+      });
+      
+      setAllRequests(updatedRequests);
+      
+      try {
+        localStorage.setItem("allRequests", JSON.stringify(updatedRequests));
+      } catch (error) {
+        console.error("Error saving to localStorage:", error);
+        toast({ 
+          title: "Warning", 
+          description: "Session revoked but failed to save locally", 
+          variant: "destructive" 
+        });
       }
-      return req;
-    });
-    setAllRequests(updatedRequests);
-    localStorage.setItem("allRequests", JSON.stringify(updatedRequests));
-    toast({
-      title: "Session Revoked",
-      description: "Access has been revoked",
-    });
+      
+      toast({
+        title: "Session Revoked",
+        description: "Access has been revoked",
+      });
+      
+    } catch (error) {
+      console.error("Error revoking session:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to revoke session", 
+        variant: "destructive" 
+      });
+    }
   };
 
   // Session timer display
@@ -379,6 +483,7 @@ export default function UserDashboard() {
                   <TableHead className="text-zinc-400">Category</TableHead>
                   <TableHead className="text-zinc-400">Approved Fields</TableHead>
                   <TableHead className="text-zinc-400">Active/Inactive</TableHead>
+                  <TableHead className="text-zinc-400">Proof Status</TableHead>
                   <TableHead className="text-zinc-400">Download</TableHead>
                   <TableHead className="text-zinc-400">Activity</TableHead>
                 </TableRow>
@@ -386,7 +491,7 @@ export default function UserDashboard() {
               <TableBody>
                 {allRequests.length === 0 ? (
                   <TableRow className="border-zinc-800">
-                    <TableCell colSpan={6} className="text-center text-zinc-400">
+                    <TableCell colSpan={7} className="text-center text-zinc-400">
                       {/* Empty row for visual consistency */}
                     </TableCell>
                   </TableRow>
@@ -419,6 +524,12 @@ export default function UserDashboard() {
                           ) : (
                             <span className="text-red-400">Inactive</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {provider.proofStatus === "awaited" && <span className="text-yellow-400">Awaited</span>}
+                          {provider.proofStatus === "Valid" && <span className="text-green-400">Valid</span>}
+                          {provider.proofStatus === "Invalid" && <span className="text-red-400">Invalid</span>}
+                          {!provider.proofStatus && <span className="text-zinc-400">-</span>}
                         </TableCell>
                         <TableCell>
                           <button 
