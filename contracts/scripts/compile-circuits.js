@@ -1,3 +1,21 @@
+/*
+
+this is a custom script that we've written to facilitate the zk-snark proof generation process
+this script covers:
+
+1. circuit compilation
+
+2. r1cs, wasm file generations
+
+3. poweroftau ceremony
+
+4. .zkey, .proof file generations
+
+5. clean up, keeping only what's needed
+
+6. generating verification-key.json for all circuits
+
+*/
 const fs = require("fs");
 const path = require("path");
 const download = require("download");
@@ -6,23 +24,19 @@ const { zKey } = require("snarkjs");
 const { config } = require("../package.json");
 const { asyncExec } = require("./utils");
 
-const circuitName = "age-verification";
-const circuitFile = `./circuits/${circuitName}.circom`;
-// TODO: add location proof circuit
+const circuits = ["age-verification", "location-proof"];  
 const ptauPath = `./circuits/powersoftau/powersOfTau28_hez_final_14.ptau`;
 const buildPath = config.paths.build.snark;
 const solidityVersion = config.solidity.version;
 
-
-const main = async () => {
+const compileCircuit = async (circuitName) => {
   try {
-    // check if build folder exists
+    const circuitFile = `./circuits/${circuitName}.circom`;
+
     if (!fs.existsSync(buildPath)) {
-      fs.mkdirSync(buildPath, { recursive: true })
+      fs.mkdirSync(buildPath, { recursive: true });
     }
 
-    // check if Ptau contributions file exists, if not download from the link
-    // Ref: https://github.com/iden3/snarkjs?tab=readme-ov-file#7-prepare-phase-2
     if (!fs.existsSync(ptauPath)) {
       console.log(`PTAU file missing, downloading from GCP...`);
       await download(
@@ -32,18 +46,15 @@ const main = async () => {
       console.log(`Downloaded PTAU to ${ptauPath}`);
     }
 
-    // compile the circom circuit
-    await asyncExec(`circom ${circuitFile} --r1cs --wasm -o ${buildPath}`)
+    await asyncExec(`circom ${circuitFile} --r1cs --wasm -o ${buildPath}`);
 
-    // generate initial key
     await zKey.newZKey(
       `${buildPath}/${circuitName}.r1cs`,
       ptauPath,
       `${buildPath}/${circuitName}_0000.zkey`,
       console
-    )
+    );
 
-    // apply beacon contribution
     await zKey.beacon(
       `${buildPath}/${circuitName}_0000.zkey`,
       `${buildPath}/${circuitName}_final.zkey`,
@@ -51,9 +62,8 @@ const main = async () => {
       '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
       10,
       console
-    )
+    );
 
-    // generate Solidity Verifier and patch pragma
     let verifierCode = await zKey.exportSolidityVerifier(
       `${buildPath}/${circuitName}_final.zkey`,
       {
@@ -63,25 +73,25 @@ const main = async () => {
       },
       console
     );
+
     verifierCode = verifierCode.replace(
       /pragma solidity \^\d+\.\d+\.\d+/,
       `pragma solidity ^${solidityVersion}`
     );
 
-    fs.writeFileSync(`${config.paths.contracts}/VerifierAge.sol`, verifierCode, 'utf-8')
+    fs.writeFileSync(`${config.paths.contracts}/Verifier${capitalize(circuitName)}.sol`, verifierCode, 'utf-8');
 
-    // export verification key
     const verificationKey = await zKey.exportVerificationKey(
       `${buildPath}/${circuitName}_final.zkey`,
       console
     );
+
     fs.writeFileSync(
-      `${buildPath}/age-verification_key.json`,
+      `${buildPath}/${circuitName}_verification_key.json`,
       JSON.stringify(verificationKey),
       'utf-8'
     );
 
-    // move wasm file to flat location and clean up
     fs.renameSync(
       `${buildPath}/${circuitName}_js/${circuitName}.wasm`,
       `${buildPath}/${circuitName}.wasm`
@@ -90,10 +100,24 @@ const main = async () => {
     rimraf.sync(`${buildPath}/${circuitName}_0000.zkey`);
     rimraf.sync(`${buildPath}/${circuitName}.r1cs`);
   } catch (err) {
+    console.error(`Error in ${circuitName} circuit:`, err);
+    process.exit(1);
+  }
+};
+
+const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+
+const main = async () => {
+  try {
+    for (let circuit of circuits) {
+      console.log(`Compiling ${circuit}...`);
+      await compileCircuit(circuit);
+    }
+  } catch (err) {
     console.error(err);
     process.exit(1);
   }
-}
+};
 
 main()
   .then(() => process.exit(0))
