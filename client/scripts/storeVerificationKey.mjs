@@ -8,17 +8,26 @@ const { VerificationKey } = require("./vkeyModel.js");
 async function storeVerificationKey() {
   await dbConnect();
 
-  const circuitName = "age";
-  const keyPath = "../contracts/circuits/build/snark/age_verification_key.json";
-  const keyJson = JSON.parse(fs.readFileSync(keyPath, "utf-8"));
+  const circuits = ["age", "location"];
+  for (const circuitName of circuits) {
+    const keyPath = `../contracts/circuits/build/snark/${circuitName}_verification_key.json`;
 
-  await VerificationKey.findOneAndUpdate(
-    { circuitName },
-    { key: keyJson, updatedAt: new Date() },
-    { upsert: true, new: true }
-  );
+    if (!fs.existsSync(keyPath)) {
+      console.error(`❌ Verification key file for "${circuitName}" not found at ${keyPath}`);
+      continue;
+    }
 
-  console.log(`✅ Stored/updated verification key for "${circuitName}"`);
+    const keyJson = JSON.parse(fs.readFileSync(keyPath, "utf-8"));
+
+    await VerificationKey.findOneAndUpdate(
+      { circuitName },
+      { key: keyJson, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    console.log(`✅ Stored/updated verification key for "${circuitName}"`);
+  }
+
   process.exit(0);
 }
 
