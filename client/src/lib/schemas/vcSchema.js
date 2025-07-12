@@ -6,78 +6,78 @@
 
 export const AadhaarVCSchema = {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    $id: "https://example.com/vc/aadhaar-v0.3.json", // placeholder for now
-    title: "Aadhaar Verifiable Credential",
-    type: "object",
+    "$id": "https://example.com/vc/aadhaar-v0.3.json", // placeholder for now
+    "title": "Aadhaar Verifiable Credential",
+    "type": "object",
 
-    required: [
+    "required": [
         "@context", "type", "issuer", "issuanceDate", "credentialSubject", "zkProof", "proof"
     ],
 
-    properties: {
+    "properties": {
         /** === W3C VC envelope bits ============================================ **/
-        "@context": { type: "array", items: { type: "string" }, default: ["https://www.w3.org/2018/credentials/v1"] },
-        type: { type: "array", items: { type: "string" }, default: ["VerifiableCredential"] },
-        issuer: { type: "string", default: "did:example:issuer" },
-        issuanceDate: { type: "string", format: "date-time" },
-        challenge: { type: "string" },
-        referenceYear: { type: "number", minimum: 1900, maximum: 2100 },
+        "@context": { "type": "array", "items": { "type": "string" }, "default": ["https://www.w3.org/2018/credentials/v1"] },
+        "type": { "type": "array", "items": { "type": "string" }, "default": ["VerifiableCredential"] },
+        "issuer": { "type": "string", "default": "did:example:issuer" },
+        "issuanceDate": { "type": "string", "format": "date-time" },
+        "challenge": { "type": "string" },
+        "referenceYear": { "type": "number", "minimum": 1900, "maximum": 2100 },
 
-        credentialSubject: {
-            type: "object",
-            title: "Fill the following details",
-            required: ["walletAddress", "aadhaarId", "name", "dob", "location"],
+        "credentialSubject": {
+            "type": "object",
+            "title": "Fill the following details",
+            "required": ["walletAddress", "aadhaarId", "name", "dob", "location"],
             /** === Subject claims =========================================== **/
-            properties: {
-                walletAddress: {
-                    type: "string",
-                    title: "Wallet Address",
-                    pattern: "^0x[a-fA-F0-9]{40}$",
-                    minLength: 42, maxLength: 42
+            "properties": {
+                "walletAddress": {
+                    "type": "string",
+                    "title": "Wallet Address",
+                    "pattern": "^0x[a-fA-F0-9]{40}$",
+                    "minLength": 42, "maxLength": 42
                 },
-                aadhaarId: {
-                    type: "string",
-                    title: "Aadhaar Number",
-                    pattern: "^[0-9]{12}$",
-                    minLength: 12, maxLength: 12
+                "aadhaarId": {
+                    "type": "string",
+                    "title": "Aadhaar Number",
+                    "pattern": "^[0-9]{12}$",
+                    "minLength": 12, "maxLength": 12
                 },
-                name: {
-                    type: "string",
-                    title: "Full Name",
-                    minLength: 3, maxLength: 64
+                "name": {
+                    "type": "string",
+                    "title": "Full Name",
+                    "minLength": 3, "maxLength": 64
                 },
-                dob: {
-                    type: "string",
-                    title: "Date of Birth",
-                    format: "date"
+                "dob": {
+                    "type": "string",
+                    "title": "Date of Birth",
+                    "format": "date"
                 },
-                location: {
-                    title: "Location",
-                    type: "object",
-                    required: ["latitude", "longitude"],
-                    properties: {
-                        latitude: { title: "Latitude", type: "number", minimum: -90, maximum: 90 },
-                        longitude: { title: "Longitude", type: "number", minimum: -180, maximum: 180 }
+                "location": {
+                    "title": "Location",
+                    "type": "object",
+                    "required": ["latitude", "longitude"],
+                    "properties": {
+                        "latitude": { "title": "Latitude", "type": "number", "minimum": -90, "maximum": 90 },
+                        "longitude": { "title": "Longitude", "type": "number", "minimum": -180, "maximum": 180 }
                     }
                 },
                 /** === Extra, mutable =========================================== **/
 
-                locationHistory: {
-                    type: "array",
-                    items: {
-                        type: "object",
-                        required: ["latitude", "longitude", "session"],
-                        properties: {
-                            latitude: { type: "number" },
-                            longitude: { type: "number" },
-                            session: {
-                                type: "object",
-                                required: ["id", "createdAt", "expiresAt", "status"],
-                                properties: {
-                                    id: { type: "string" },
-                                    createdAt: { type: "string", format: "date-time" },
-                                    expiresAt: { type: "string", format: "date-time" },
-                                    status: { type: "string", enum: ["ongoing", "revoked", "completed"] }
+                "locationHistory": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["latitude", "longitude", "session"],
+                        "properties": {
+                            "latitude": { "type": "number" },
+                            "longitude": { "type": "number" },
+                            "session": {
+                                "type": "object",
+                                "required": ["id", "createdAt", "expiresAt", "status"],
+                                "properties": {
+                                    "id": { type: "string" },
+                                    "createdAt": { type: "string", format: "date-time" },
+                                    "expiresAt": { type: "string", format: "date-time" },
+                                    "status": { type: "string", enum: ["ongoing", "revoked", "completed"] }
                                 }
                             },
                         }
@@ -88,65 +88,66 @@ export const AadhaarVCSchema = {
 
 
         /** === Signatures ============================================== **/
-        signatures: {
-            type: "array",
-            items: {
-                type: "object",
-                required: ["stage", "value", "timestamp"],
-                properties: {
-                    stage: {
-                        type: "string",
-                        enum: ["issue", "consent", "revoke", "complete"]
+        "signatures": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["stage", "value", "timestamp"],
+                "properties": {
+                    "stage": {
+                        "type": "string",
+                        "enum": ["issue", "consent", "revoke", "complete"]
                     },
-                    value: { type: "string" },
-                    timestamp: { type: "string", format: "date-time" }
+                    "value": { "type": "string" },
+                    "timestamp": { "type": "string", "format": "date-time" }
                 }
             },
-            minItems: 1 // at least one signature is required
+            // minItems: 1 // at least one signature is required
+            // if only we can make this check run like a do while;
         },
 
         /** === zk-SNARK Proof ========================================== **/
-        zkProof: {
-            type: "object",
-            required: ["protocol", "curve", "pi_a", "pi_b", "pi_c", "publicSignals"],
-            properties: {
-                protocol: { type: "string", enum: ["groth16"] },
-                curve: { type: "string", enum: ["bn128", "bls12_381"] },
-                pi_a: {
-                    type: "array",
-                    items: { type: "string" },
-                    minItems: 3, maxItems: 3
+        "zkProof": {
+            "type": "object",
+            "required": ["protocol", "curve", "pi_a", "pi_b", "pi_c", "publicSignals"],
+            "properties": {
+                "protocol": { type: "string", enum: ["groth16"] },
+                "curve": { "type": "string", "enum": ["bn128", "bls12_381"] },
+                "pi_a": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "minItems": 3, "maxItems": 3
                 },
-                pi_b: {
-                    type: "array",
-                    items: {
-                        type: "array",
-                        items: { type: "string" },
-                        minItems: 2, maxItems: 2
+                "pi_b": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "minItems": 2, "maxItems": 2
                     },
-                    minItems: 3, maxItems: 3
+                    "minItems": 3, "maxItems": 3
                 },
-                pi_c: {
-                    type: "array",
-                    items: { type: "string" },
-                    minItems: 3, maxItems: 3
+                "pi_c": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "minItems": 3, "maxItems": 3
                 },
-                publicSignals: {
-                    type: "array",
-                    items: { type: "string" }
+                "publicSignals": {
+                    "type": "array",
+                    "items": { "type": "string" }
                 }
             }
         },
 
-        proof: {
-            type: "object",
-            required: ["type", "created", "proofPurpose", "verificationMethod", "jws"],
-            properties: {
-                type: { type: "string" },
-                created: { type: "string", format: "date-time" },
-                proofPurpose: { type: "string" },
-                verificationMethod: { type: "string" },
-                jws: { type: "string" }
+        "proof": {
+            "type": "object",
+            "required": ["type", "created", "proofPurpose", "verificationMethod", "jws"],
+            "properties": {
+                "type": { "type": "string" },
+                "created": { "type": "string", "format": "date-time" },
+                "proofPurpose": { "type": "string" },
+                "verificationMethod": { "type": "string" },
+                "jws": { "type": "string" }
             }
         }
 

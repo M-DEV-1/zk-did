@@ -36,26 +36,26 @@ export default function ProofProgressModal({
 
     const runSteps = async () => {
       try {
-        const zkProof = await generateAgeProof(formData.dob, referenceYear, challenge);
+        const zkProof = await generateAgeProof(formData.credentialSubject.dob, referenceYear, challenge);
 
         setCurrentStep("sign");
         const now = new Date();
         const vc = {
-          context: ["https://www.w3.org/2018/credentials/v1"],
-          type: ["VerifiableCredential", "AadhaarCredential"],
-          issuer: "did:example:issuer",
-          issuanceDate: now.toISOString(),
+          "@context": ["https://www.w3.org/2018/credentials/v1"],
+          "type": ["VerifiableCredential", "AadhaarCredential"],
+          "issuer": "did:example:issuer",
+          "issuanceDate": now.toISOString(),
           ...formData,
-          challenge: challenge.toString(),
-          referenceYear: referenceYear,
-          locationHistory: [
+          "challenge": challenge.toString(),
+          "referenceYear": referenceYear,
+          "locationHistory": [
             {
               ...formData.location,
-              session: { id: crypto.randomUUID(), createdAt: now.toISOString() },
+              "session": { "id": crypto.randomUUID(), "createdAt": now.toISOString() },
             },
           ],
-          signatures: [],
-          proof: zkProof,
+          "signatures": [],
+          "zkProof": zkProof,
         };
 
         const signature = await signPayload(vc);

@@ -10,13 +10,17 @@ export async function POST(request) {
     const formData = await request.json();
     console.log("Received formData:", formData);
 
-    if (!formData.walletAddress) {
+    console.log("Sanitizing VC before upload");
+
+    const cleanVC = JSON.parse(JSON.stringify(formData)); // removes unserializable fields
+
+    if (!formData.credentialSubject.walletAddress) {
       console.log("Missing walletAddress");
       return NextResponse.json({ error: "Missing walletAddress" }, { status: 400 });
     }
 
     const upload = await pinata.upload.private.json({
-      content: formData,
+      content: cleanVC,
       name: `aadhaar-vc-${formData.walletAddress}.json`,
       lang: "json",
     });
@@ -39,10 +43,10 @@ export async function POST(request) {
       console.error("failed to fetch stuff from ipfs cloud");
     }
 
-    // Store in MongoDB
+    // store in MongoDB
     try {
       await dbConnect();
-      await User.create({ name: formData.name, walletAddress: formData.walletAddress, cid });
+      await User.User.create({ name: formData.credentialSubject.name, walletAddress: formData.credentialSubject.walletAddress, cid });
       console.log("Stored CID in MongoDB");
     } catch (dbErr) {
       console.error("MongoDB store error:", dbErr);
