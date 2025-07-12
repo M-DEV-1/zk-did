@@ -46,7 +46,7 @@ export async function POST(request) {
     // store in MongoDB
     try {
       await dbConnect();
-      await User.User.create({ name: formData.credentialSubject.name, walletAddress: formData.credentialSubject.walletAddress, cid });
+      await User.create({ name: formData.credentialSubject.name, walletAddress: formData.credentialSubject.walletAddress, cid });
       console.log("Stored CID in MongoDB");
     } catch (dbErr) {
       console.error("MongoDB store error:", dbErr);

@@ -1,14 +1,12 @@
-import { Schema, Model } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
 const UserSchema = new Schema({
-  name: { type: String, required: true },
+  name: { type: String, required: true, unique: true },
   walletAddress: { type: String, required: true },
-  cid: { type: String, required: true },
+  cid: { type: String, required: true, unique: true },
   createdAt: { type: Date, default: Date.now },
-});
+}); // validate input later
 
-const UserModel = new Model("User", UserSchema);
-
-const User = new UserModel();
+const User = mongoose.models.User || mongoose.model("User", UserSchema, "users");
 
 export default User;
