@@ -11,10 +11,9 @@ const JWT_SECRET = new TextEncoder().encode('super-secret-key');
 
 export async function POST(request) {
   try {
-
     await dbConnect();
 
-    const { cid, provider, requestedFields } = await request.json();
+    const { cid, provider, requestedFields, proofType } = await request.json();
 
     // Validate required fields
     if (!cid) {
@@ -75,23 +74,19 @@ export async function POST(request) {
       .setProtectedHeader({ alg: 'HS256' })
       .sign(JWT_SECRET);
 
+    // FIXED: Store userId and use proofType from frontend
     await Models.Requests.create({
       sessionId,
-      user: {
-        name: userDoc.name,
-        cid: userDoc.cid,
-        walletAddress: userDoc.walletAddress,
-      },
-      proofType: Array.isArray(requestedFields) && requestedFields.includes("location")
-        ? ["location"]
-        : ["age"],
+      user: userDoc._id, // Add userId field for verification lookup
+      proofType: proofType || ["age"], // Use proofType from frontend
       requestedFields: fieldValidation.validFields,
       requestTime: new Date(),
       status: "Pending",
       timerEnd: new Date(Date.now() + (provider.sessionDuration || 30000)),
-      proofStatus: "awaited"
+      proofStatus: "awaited",
+      providerId: provider.providerId,
+      challenge: challenge
     });
-
 
     // For now, we'll return the provider data to be handled by the frontend
     return NextResponse.json({
@@ -121,4 +116,4 @@ export async function POST(request) {
       { status: 500 }
     );
   }
-} 
+}

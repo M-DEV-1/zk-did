@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { pinata } from "@/utils/config";
 import dbConnect from "@/utils/db/db";
-import User from "@/utils/db/models";
+import Models from "@/utils/db/models";
 import bcrypt from "bcrypt";
 
 let cid;
@@ -22,7 +22,7 @@ export async function POST(request) {
 
     const upload = await pinata.upload.private.json({
       content: cleanVC,
-      name: `aadhaar-vc-${formData.walletAddress}.json`,
+      name: `aadhaar-vc-${formData.credentialSubject.walletAddress}.json`,
       lang: "json",
     });
 
@@ -44,14 +44,13 @@ export async function POST(request) {
       console.error("failed to fetch stuff from ipfs cloud");
     }
 
-    // store in MongoDB
     try {
       await dbConnect();
-      await User.create({ 
+      await Models.User.create({ 
         name: formData.credentialSubject.name,
         walletAddress: formData.credentialSubject.walletAddress, 
         cid,
-        aadhar: await bcrypt.hash(formData.credentialSubject.aadharId, 15)});
+        aadhar: await bcrypt.hash(formData.credentialSubject.aadhaarId, 15)});
       console.log("Stored CID in MongoDB");
     } catch (dbErr) {
       console.error("MongoDB store error:", dbErr);

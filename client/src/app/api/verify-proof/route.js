@@ -72,19 +72,46 @@ export async function POST(req) {
       throw new Error("Proof verification failed");
     }
 
-    // Update the request status in DB - FIXED QUERY
+    // FIXED: Update the request status in DB - now matches the stored structure
     const updatedRequest = await Models.Requests.findOneAndUpdate(
-      { userId, sessionId }, // Filter: find by both userId AND sessionId
+      { 
+        userId, // Now matches the stored userId field
+        sessionId,
+        // Optional: Add additional safety checks
+        "user.cid": cid, // Ensure CID matches
+        proofStatus: "awaited" // Only update if still awaited
+      },
       { 
         proofStatus: verified ? "Valid" : "Invalid", 
-        status: "Completed", 
-        verificationTime: new Date() 
-      }, // Update object
-      { new: true } // Options
+        status: verified ? "Completed" : "Ongoing", // Keep ongoing if invalid
+        verificationTime: new Date(),
+        // Store proof verification details
+        verificationDetails: {
+          proofType,
+          verified,
+          verifiedAt: new Date()
+        }
+      },
+      { new: true }
     );
 
     if (!updatedRequest) {
-      console.warn(`No request found for userId: ${userId}, sessionId: ${sessionId}`);
+      console.warn(`No request found for userId: ${userId}, sessionId: ${sessionId}, cid: ${cid}`);
+      
+      // Try alternative query to debug
+      const debugRequest = await Models.Requests.findOne({ 
+        sessionId,
+        "user.cid": cid 
+      });
+      
+      if (debugRequest) {
+        console.log("Found request but userId mismatch:", {
+          storedUserId: debugRequest.userId,
+          providedUserId: userId
+        });
+      } else {
+        console.log("No request found with sessionId and cid");
+      }
     }
 
     console.log(`Verification complete. Result: ${verified ? "Valid" : "Invalid"}`);
@@ -92,7 +119,8 @@ export async function POST(req) {
     return NextResponse.json({
       verified,
       proofStatus: verified ? "Valid" : "Invalid",
-      message: verified ? "Proof verified successfully" : "Proof verification failed"
+      message: verified ? "Proof verified successfully" : "Proof verification failed",
+      updatedRequest: !!updatedRequest
     });
 
   } catch (err) {

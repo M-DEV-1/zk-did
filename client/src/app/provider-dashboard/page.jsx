@@ -41,13 +41,14 @@ function formatISTTime(date) {
 
 export default function ProviderDashboard() {
   const { toast } = useToast();
-  const [requests, setRequests] = useState([]); // All sent requests
+  const [requests, setRequests] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [users, setUsers] = useState([]); // Users from database
+  const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedProofs, setSelectedProofs] = useState([]); // Multi-select for proofs
+  const [selectedProofs, setSelectedProofs] = useState([]);
   const [isSending, setIsSending] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
   // Multi-select filters
   const [userFilter, setUserFilter] = useState([]);
   const [proofFilter, setProofFilter] = useState([]);
@@ -55,34 +56,39 @@ export default function ProviderDashboard() {
   const [proofStatusFilter, setProofStatusFilter] = useState([]);
   const [sortBy, setSortBy] = useState("requestTime");
   const [sortDir, setSortDir] = useState("desc");
-  const [isResigning, setIsResigning] = useState(false);
+
+  // FIXED: Added missing state declarations
+  const [verificationInProgress, setVerificationInProgress] = useState(new Set());
 
   function formatCid(cid) {
+    if (typeof cid !== "string") {
+      console.warn("Invalid cid passed to formatCid:", cid);
+      return "Invalid CID";
+    }
     return cid.slice(0, 4) + "..." + cid.slice(-4);
   }
 
+
+  // FIXED: Define fetchRequests function properly
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch("/api/provider/requests");
+      if (!res.ok) throw new Error("Failed to fetch requests");
+      const data = await res.json();
+      setRequests(data.requests || []);
+    } catch (err) {
+      console.error("Error fetching requests:", err);
+      toast({
+        title: "Error fetching requests",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const res = await fetch("/api/provider/requests");
-        if (!res.ok) throw new Error("Failed to fetch requests");
-        const data = await res.json();
-
-        // assuming that the response contains user details populated in the request
-        setRequests(data.requests || []);
-      } catch (err) {
-        console.error("Error fetching requests:", err);
-        toast({
-          title: "Error fetching requests",
-          description: err.message,
-          variant: "destructive",
-        });
-      }
-    };
-
     fetchRequests();
   }, []);
-
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -127,6 +133,7 @@ export default function ProviderDashboard() {
     fetchUsers();
   }, [toast]);
 
+  // FIXED: Proper verification effect with correct proofType handling
   useEffect(() => {
     const verifyPendingProofs = async () => {
       const pending = requests.filter(req =>
@@ -139,28 +146,33 @@ export default function ProviderDashboard() {
         try {
           setVerificationInProgress(prev => new Set(prev).add(req.sessionId));
 
-          const res = await fetch("/api/verify-proof", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              cid: req.user.cid,
-              proofType: req.proofType,
-              walletAddress: req.user.walletAddress,
-              sessionId: req.sessionId
-            })
-          });
+          // FIXED: Handle proofType as array - verify each proof type
+          const proofTypes = Array.isArray(req.proofType) ? req.proofType : [req.proofType];
 
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Proof verification failed");
+          for (const proofType of proofTypes) {
+            const res = await fetch("/api/verify-proof", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                cid: req.user.cid,
+                proofType: proofType, // Send single proofType string
+                sessionId: req.sessionId
+              })
+            });
 
-          toast({
-            title: "Proof Verified",
-            description: `Status: ${data.proofStatus}`,
-            variant: data.verified ? "default" : "destructive"
-          });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Proof verification failed");
+
+            toast({
+              title: "Proof Verified",
+              description: `${proofType}: ${data.proofStatus}`,
+              variant: data.verified ? "default" : "destructive"
+            });
+          }
 
           await fetchRequests(); // Refresh data
         } catch (err) {
+          console.error("Verification error:", err);
           toast({
             title: "Verification Failed",
             description: err.message,
@@ -176,13 +188,17 @@ export default function ProviderDashboard() {
       }
     };
 
-    verifyPendingProofs();
-  }, [requests]);
+    if (requests.length > 0) {
+      verifyPendingProofs();
+    }
+  }, [requests, toast, verificationInProgress]);
 
   // Filtering and sorting
   const filteredRequests = requests.filter((req) => {
     const userMatch = userFilter.length === 0 || userFilter.includes(req.user?.cid);
-    const proofMatch = proofFilter.length === 0 || proofFilter.some(p => req.proofType.includes(p));
+    const proofMatch = proofFilter.length === 0 || proofFilter.some(p =>
+      Array.isArray(req.proofType) ? req.proofType.includes(p) : req.proofType === p
+    );
     const statusMatch = statusFilter.length === 0 || statusFilter.includes(req.status);
     const proofStatusMatch = proofStatusFilter.length === 0 || proofStatusFilter.includes(req.proofStatus);
     return userMatch && proofMatch && statusMatch && proofStatusMatch;
@@ -200,9 +216,11 @@ export default function ProviderDashboard() {
         : b.user.name.localeCompare(a.user.name);
     }
     if (sortBy === "proofType") {
+      const aProof = Array.isArray(a.proofType) ? a.proofType.join(", ") : a.proofType;
+      const bProof = Array.isArray(b.proofType) ? b.proofType.join(", ") : b.proofType;
       return sortDir === "asc"
-        ? a.proofType.localeCompare(b.proofType)
-        : b.proofType.localeCompare(a.proofType);
+        ? aProof.localeCompare(bProof)
+        : bProof.localeCompare(aProof);
     }
     if (sortBy === "status") {
       return sortDir === "asc"
@@ -217,7 +235,7 @@ export default function ProviderDashboard() {
     return 0;
   });
 
-  // Handle sending a request
+  // FIXED: Improved error handling in handleSendRequest
   const handleSendRequest = async () => {
     if (!selectedUser || selectedProofs.length === 0) {
       toast({
@@ -228,7 +246,6 @@ export default function ProviderDashboard() {
       return;
     }
 
-    // Validate that selected user has required fields
     if (!selectedUser.cid) {
       toast({
         title: "Validation Error",
@@ -251,73 +268,58 @@ export default function ProviderDashboard() {
     try {
       console.log(`Sending request to user: ${selectedUser.name} (${selectedUser.cid})`);
 
-      // For demo, proofType maps to requestedFields
       const requestedFields = selectedProofs.map((proof) =>
         proof === "age" ? "dob" : proof === "location" ? "location" : proof
       );
 
       const providerRequest = {
-        cid: selectedUser.cid, // Use walletAddress from DB
+        cid: selectedUser.cid,
         provider: {
           name: "Provider Admin",
           description: `Proof requested: ${selectedProofs.join(", ")}`,
           providerId: `provider_admin_${selectedUser.cid}`,
-          sessionDuration: 60000, // 1 minute
+          sessionDuration: 60000,
           category: "Admin"
         },
         requestedFields,
-        proofType: selectedProofs // now an array
+        proofType: selectedProofs
       };
+
       const response = await fetch("/api/request-provider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(providerRequest),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      // FIXED: Better error handling for non-JSON responses
+      let data;
+      const contentType = response.headers.get("content-type");
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Server returned non-JSON response: ${text}`);
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
 
       if (!data.provider || !data.provider.requestMetadata || !data.provider.requestMetadata.sessionId) {
         throw new Error("Invalid response format - missing session ID");
       }
 
-      const providerDetails = {
-        name: "Provider Admin",
-        description: `Proof requested: ${selectedProofs.join(", ")}`,
-        providerId: `provider_admin_${selectedUser.cid}`,
-        sessionDuration: 60000, // 1 minute
-        category: "Admin"
-      };
+      // Refresh requests after successful send
+      await fetchRequests();
 
-      const newReq = {
-        sessionId: data.provider.requestMetadata.sessionId,
-        user: selectedUser,
-        proofType: selectedProofs, // now an array
-        requestTime: Date.now(),
-        status: "Pending",
-        timerEnd: Date.now() + 60000, // 1 minute
-        proofStatus: "awaited", // Default proof status
-        ...providerDetails,
-        requestedFields,
-      };
-
-      try {
-        // await fetchRequests(); // refresh full request list from DB
-        setShowModal(false);
-        setSelectedProofs([]);
-        toast({
-          title: "Request Sent",
-          description: `Request sent to ${selectedUser.name}`
-        });
-        console.log(`Request sent successfully. Session ID: ${newReq.sessionId}`);
-      } catch (error) {
-        console.error("Error updating localStorage:", error);
-        throw new Error("Failed to save request locally");
-      }
+      setShowModal(false);
+      setSelectedProofs([]);
+      toast({
+        title: "Request Sent",
+        description: `Request sent to ${selectedUser.name}`
+      });
+      console.log(`Request sent successfully. Session ID: ${data.provider.requestMetadata.sessionId}`);
 
     } catch (error) {
       console.error("Error sending request:", error);
@@ -331,32 +333,20 @@ export default function ProviderDashboard() {
     }
   };
 
-  // Handler for Complete/Revoke
+  // FIXED: Simplified session update handler without resign modal
   const handleSessionUpdate = async (req, status) => {
     try {
       console.log(`Updating session for request ${req.sessionId} to status: ${status}`);
 
-      // Mock VC and session info for demo
-      const vc = {
-        walletAddress: req.user.walletAddress,
-        issuer: req.providerId,
-        locationHistory: req.locationHistory || [],
-        challenge: req.challenge || "old-challenge"
+      const updateData = {
+        sessionId: req.sessionId,
+        status: status === "completed" ? "Completed" : "Revoked"
       };
-      const session = {
-        id: req.sessionId,
-        createdAt: new Date(req.requestTime).toISOString(),
-        expiresAt: new Date(req.timerEnd).toISOString()
-      };
-      // Mock location (could use real geolocation)
-      const location = { latitude: 28.6139, longitude: 77.2090 };
 
-      setIsResigning(true);
-
-      const response = await fetch("/api/vc-session-update", {
+      const response = await fetch("/api/provider/update-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vc, session, status, location })
+        body: JSON.stringify(updateData)
       });
 
       if (!response.ok) {
@@ -364,11 +354,13 @@ export default function ProviderDashboard() {
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      setPendingResignVC(data.updatedVC);
-      setPendingResignStatus(status);
-      setPendingResignRequest(req);
-      setShowResignModal(true);
+      await fetchRequests(); // Refresh the requests list
+
+      toast({
+        title: "Session Updated",
+        description: `Request ${status === "completed" ? "completed" : "revoked"} successfully`,
+        variant: "default"
+      });
 
     } catch (error) {
       console.error("Error updating session:", error);
@@ -377,8 +369,6 @@ export default function ProviderDashboard() {
         description: `Failed to update session: ${error.message}`,
         variant: "destructive"
       });
-    } finally {
-      setIsResigning(false);
     }
   };
 
@@ -446,9 +436,9 @@ export default function ProviderDashboard() {
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
               <h3 className="text-white text-lg font-semibold">Requests</h3>
-              {/* <Button variant="outline" size="sm" onClick={fetchRequests}>
+              <Button variant="outline" size="sm" onClick={fetchRequests}>
                 Refresh
-              </Button> */}
+              </Button>
               <MultipleSelector
                 options={users.map(u => ({ value: u.cid, label: u.name }))}
                 value={userFilter}
@@ -515,13 +505,6 @@ export default function ProviderDashboard() {
                         {req.status === "Completed" && <span className="text-green-400">Completed</span>}
                         {req.status === "Rejected" && <span className="text-red-400">Rejected</span>}
                         {req.status === "Revoked" && <span className="text-purple-400">Revoked</span>}
-                        {/* Action buttons for Complete/Revoke */}
-                        {(req.status === "Ongoing" || req.status === "Pending") && (
-                          <div className="flex gap-2 mt-2">
-                            <Button size="sm" variant="success" disabled={isResigning} onClick={() => handleSessionUpdate(req, "completed")}>Complete</Button>
-                            <Button size="sm" variant="destructive" disabled={isResigning} onClick={() => handleSessionUpdate(req, "revoked")}>Revoke</Button>
-                          </div>
-                        )}
                       </TableCell>
                       <TableCell className="text-white">
                         {req.proofStatus === "awaited" && <span className="text-yellow-400">Awaited</span>}
@@ -571,4 +554,4 @@ export default function ProviderDashboard() {
       </Dialog>
     </div>
   );
-} 
+}
