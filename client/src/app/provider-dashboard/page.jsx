@@ -191,7 +191,10 @@ export default function ProviderDashboard() {
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Proof verification failed");
+            if (!res.ok) {
+              console.error(`Verification failed for ${proofType}:`, data.error);
+              throw new Error(data.error || "Proof verification failed");
+            }
 
             console.log(`Verification result for ${proofType}:`, data);
 
@@ -212,6 +215,9 @@ export default function ProviderDashboard() {
             description: err.message,
             variant: "destructive"
           });
+          
+          // FIXED: Mark this session as failed to prevent infinite retries
+          verificationRef.current.delete(req.sessionId);
         } finally {
           verificationRef.current.delete(req.sessionId); // FIXED: Use ref for immediate cleanup
           setVerificationInProgress(prev => {
