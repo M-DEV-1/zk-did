@@ -8,7 +8,6 @@ export async function GET() {
 
     const allRequests = await Models.Requests.find({})
       .sort({ requestTime: -1 }) // latest first
-      .lean(); // return plain JS objects
 
     return NextResponse.json({ requests: allRequests });
   } catch (err) {

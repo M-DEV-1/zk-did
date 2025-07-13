@@ -72,7 +72,7 @@ export default function ProviderDashboard() {
   // FIXED: Define fetchRequests function properly
   const fetchRequests = async () => {
     try {
-      const res = await fetch("/api/provider/requests");
+      const res = await fetch("/api/requests/provider");
       if (!res.ok) throw new Error("Failed to fetch requests");
       const data = await res.json();
       setRequests(data.requests || []);
