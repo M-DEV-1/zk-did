@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -59,6 +59,7 @@ export default function ProviderDashboard() {
 
   // FIXED: Added missing state declarations
   const [verificationInProgress, setVerificationInProgress] = useState(new Set());
+  const verificationRef = useRef(new Set()); // FIXED: Add ref to track verification state
 
   function formatCid(cid) {
     if (typeof cid !== "string") {
@@ -88,6 +89,15 @@ export default function ProviderDashboard() {
 
   useEffect(() => {
     fetchRequests();
+  }, []);
+
+  // FIXED: Add polling to detect status changes (like when user approves consent)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchRequests();
+    }, 3000); // Poll every 3 seconds to catch status changes
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -133,23 +143,35 @@ export default function ProviderDashboard() {
     fetchUsers();
   }, [toast]);
 
-  // FIXED: Improved verification effect that runs immediately when status changes to "Ongoing"
+  // FIXED: Improved verification effect that runs when status changes to "Ongoing"
   useEffect(() => {
     const verifyPendingProofs = async () => {
+      console.log("Checking for pending verifications...");
+      console.log("Current requests:", requests.map(r => ({ 
+        sessionId: r.sessionId, 
+        status: r.status, 
+        proofStatus: r.proofStatus,
+        inProgress: verificationInProgress.has(r.sessionId)
+      })));
+
       const pending = requests.filter(req =>
         req.status === "Ongoing" &&
         req.proofStatus === "awaited" &&
-        !verificationInProgress.has(req.sessionId)
+        !verificationRef.current.has(req.sessionId) // FIXED: Use ref instead of state
       );
 
-      if (pending.length === 0) return;
+      if (pending.length === 0) {
+        console.log("No pending verifications found");
+        return;
+      }
 
-      console.log(`Found ${pending.length} requests needing verification`);
+      console.log(`Found ${pending.length} requests needing verification:`, pending.map(p => p.sessionId));
 
       for (const req of pending) {
         try {
           console.log(`Starting verification for session: ${req.sessionId}`);
 
+          verificationRef.current.add(req.sessionId); // FIXED: Use ref for immediate state update
           setVerificationInProgress(prev => new Set(prev).add(req.sessionId));
 
           // Handle proofType as array - verify each proof type
@@ -180,8 +202,8 @@ export default function ProviderDashboard() {
             });
           }
 
-          // Refresh requests after successful verification
-          await fetchRequests();
+          // FIXED: Don't call fetchRequests here as it causes infinite loops
+          // The polling will pick up the status change automatically
 
         } catch (err) {
           console.error("Verification error:", err);
@@ -191,6 +213,7 @@ export default function ProviderDashboard() {
             variant: "destructive"
           });
         } finally {
+          verificationRef.current.delete(req.sessionId); // FIXED: Use ref for immediate cleanup
           setVerificationInProgress(prev => {
             const next = new Set(prev);
             next.delete(req.sessionId);
@@ -200,11 +223,26 @@ export default function ProviderDashboard() {
       }
     };
 
-    // Run verification immediately when there are pending requests
-    if (requests.length > 0) {
-      verifyPendingProofs();
+    // Run verification when requests change and there are pending verifications
+    verifyPendingProofs();
+  }, [requests]); // FIXED: Simplified dependency to just requests
+
+  // FIXED: Add a separate effect to handle verification state cleanup
+  useEffect(() => {
+    // Clean up verification state for completed requests
+    const completedRequests = requests.filter(req => 
+      req.proofStatus === "Valid" || req.proofStatus === "Invalid"
+    );
+    
+    if (completedRequests.length > 0) {
+      completedRequests.forEach(req => verificationRef.current.delete(req.sessionId)); // FIXED: Clean up ref
+      setVerificationInProgress(prev => {
+        const next = new Set(prev);
+        completedRequests.forEach(req => next.delete(req.sessionId));
+        return next;
+      });
     }
-  }, [requests, toast]); // FIXED: Depend on the actual requests array, not just length
+  }, [requests]);
 
   // Filtering and sorting
   const filteredRequests = requests.filter((req) => {
@@ -391,8 +429,27 @@ export default function ProviderDashboard() {
       setRequests((prev) =>
         prev.map((req) => {
           if (req.status !== "Ongoing" && req.status !== "Pending") return req;
+          
+          // FIXED: Handle timerEnd properly
+          let timerEnd = req.timerEnd;
+          
+          // If timerEnd is a string (Date object), convert to timestamp
+          if (typeof timerEnd === "string") {
+            timerEnd = new Date(timerEnd).getTime();
+          }
+          
+          // If timerEnd is a Date object, convert to timestamp
+          if (timerEnd instanceof Date) {
+            timerEnd = timerEnd.getTime();
+          }
+
+          if (!timerEnd || isNaN(timerEnd)) {
+            console.warn("Invalid timerEnd for request:", req.sessionId, timerEnd);
+            return req; // Don't change status if timerEnd is invalid
+          }
+
           const now = Date.now();
-          if (now >= req.timerEnd) {
+          if (now >= timerEnd) {
             return { ...req, status: "Completed" };
           }
           return req;
@@ -512,7 +569,30 @@ export default function ProviderDashboard() {
                       }</TableCell>
                       <TableCell className="text-white">
                         {req.status === "Ongoing" && (
-                          <span className="text-yellow-400">Ongoing ({Math.max(0, Math.floor((req.timerEnd - Date.now()) / 1000))}s)</span>
+                          <span className="text-yellow-400">
+                            Ongoing ({(() => {
+                              // FIXED: Handle timerEnd properly
+                              let timerEnd = req.timerEnd;
+                              
+                              // If timerEnd is a string (Date object), convert to timestamp
+                              if (typeof timerEnd === "string") {
+                                timerEnd = new Date(timerEnd).getTime();
+                              }
+                              
+                              // If timerEnd is a Date object, convert to timestamp
+                              if (timerEnd instanceof Date) {
+                                timerEnd = timerEnd.getTime();
+                              }
+
+                              if (!timerEnd || isNaN(timerEnd)) {
+                                console.warn("Invalid timerEnd for request:", req.sessionId, timerEnd);
+                                return "Unknown";
+                              }
+
+                              const timeLeft = Math.max(0, Math.floor((timerEnd - Date.now()) / 1000));
+                              return `${timeLeft}s`;
+                            })()})
+                          </span>
                         )}
                         {req.status === "Pending" && <span className="text-blue-400">Pending</span>}
                         {req.status === "Completed" && <span className="text-green-400">Completed</span>}

@@ -235,7 +235,8 @@ export default function UserDashboard() {
       await updateRequest(currentProviderData.sessionId, {
         status: "Ongoing",
         approvedFields,
-        proofStatus: "awaited"
+        proofStatus: "awaited",
+        timerEnd: Date.now() + 120000 // FIXED: Set timerEnd when approving consent (2 minutes)
       });
 
       setShowConsentModal(false);
@@ -330,16 +331,29 @@ export default function UserDashboard() {
   // Session timer display
   const getSessionStatus = (req) => {
     if (req.status === "Ongoing") {
-      // Convert timerEnd to timestamp in ms if it's a string
-      const timerEnd = typeof req.timerEnd === "string"
-        ? new Date(req.timerEnd).getTime()
-        : req.timerEnd;
+      // FIXED: Handle timerEnd properly - it should be a timestamp (number)
+      let timerEnd = req.timerEnd;
+      
+      // If timerEnd is a string (Date object), convert to timestamp
+      if (typeof timerEnd === "string") {
+        timerEnd = new Date(timerEnd).getTime();
+      }
+      
+      // If timerEnd is a Date object, convert to timestamp
+      if (timerEnd instanceof Date) {
+        timerEnd = timerEnd.getTime();
+      }
 
-      if (!timerEnd || isNaN(timerEnd)) return "Unknown";
+      if (!timerEnd || isNaN(timerEnd)) {
+        console.warn("Invalid timerEnd for request:", req.sessionId, timerEnd);
+        return "Unknown";
+      }
 
       const now = Date.now();
       const timeLeft = timerEnd - now;
+      
       if (timeLeft <= 0) return "Expired";
+      
       const minutes = Math.floor(timeLeft / 60000);
       const seconds = Math.floor((timeLeft % 60000) / 1000);
       return `${minutes}:${seconds.toString().padStart(2, '0')}`;

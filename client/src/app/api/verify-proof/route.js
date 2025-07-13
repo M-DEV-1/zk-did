@@ -8,6 +8,9 @@ export async function POST(req) {
   try {
     const { cid, proofType, sessionId } = await req.json();
     console.log("Verification Proof CID: " + cid);
+    console.log("Proof Type: " + proofType);
+    console.log("Session ID: " + sessionId);
+    
     // Validate required fields
     if (!cid || !proofType || !sessionId) {
       return new NextResponse("Missing cid, proofType, or sessionId", { status: 400 });
@@ -16,8 +19,25 @@ export async function POST(req) {
     await dbConnect();
     console.log("Connected to DB");
 
-    // Fetch VC JSON from IPFS with error handling
+    // FIXED: First check if the request exists and get its details
+    const requestDoc = await Models.Requests.findOne({ sessionId });
+    if (!requestDoc) {
+      console.error(`Request not found for sessionId: ${sessionId}`);
+      return NextResponse.json({
+        error: "Request not found",
+        verified: false,
+        proofStatus: "Invalid"
+      }, { status: 404 });
+    }
 
+    console.log("Found request:", {
+      sessionId: requestDoc.sessionId,
+      status: requestDoc.status,
+      proofStatus: requestDoc.proofStatus,
+      cid: requestDoc.cid
+    });
+
+    // Fetch VC JSON from IPFS with error handling
     const { data, contentType } = await pinata.gateways.private.get(cid);
     console.log("Data:", data);
     console.log("Content-Type:", contentType);
@@ -76,10 +96,11 @@ export async function POST(req) {
       throw new Error("Proof verification failed");
     }
 
+    console.log(`Proof verification result: ${verified}`);
+
     // FIXED: Update the request status in DB - now matches the stored structure
     const updatedRequest = await Models.Requests.findOneAndUpdate(
       {
-        user: userDoc._id,
         sessionId,
         // Optional: Add additional safety checks
         proofStatus: "awaited" // Only update if still awaited
@@ -99,22 +120,9 @@ export async function POST(req) {
     );
 
     if (!updatedRequest) {
-      console.warn(`No request found for userId: ${userId}, sessionId: ${sessionId}, cid: ${cid}`);
-
-      // Try alternative query to debug
-      const debugRequest = await Models.Requests.findOne({
-        sessionId,
-        cid
-      });
-
-      if (debugRequest) {
-        console.log("Found request but userId mismatch:", {
-          storedUserId: debugRequest.userId,
-          providedUserId: userId
-        });
-      } else {
-        console.log("No request found with sessionId and cid");
-      }
+      console.warn(`No request found for sessionId: ${sessionId}`);
+    } else {
+      console.log(`Request updated successfully: ${updatedRequest.sessionId}`);
     }
 
     console.log(`Verification complete. Result: ${verified ? "Valid" : "Invalid"}`);
@@ -131,8 +139,7 @@ export async function POST(req) {
     return NextResponse.json({
       error: err.message,
       proofStatus: "Failed to Verify",
-      verified: false,
-      proofStatus: "Invalid"
+      verified: false
     }, { status: 500 });
   }
 }

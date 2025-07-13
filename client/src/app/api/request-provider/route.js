@@ -83,7 +83,7 @@ export async function POST(request) {
       requestedFields: fieldValidation.validFields,
       requestTime: new Date(),
       status: "Pending",
-      timerEnd: new Date(Date.now() + (60000)),
+      timerEnd: Date.now() + 120000, // FIXED: Store as timestamp (2 minutes)
       proofStatus: "awaited",
       providerId: provider.providerId,
       challenge: challenge

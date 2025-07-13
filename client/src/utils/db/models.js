@@ -26,6 +26,13 @@ const RequestSchema = new Schema({
   status: { type: String, default: "Pending" }, // "Pending", "Ongoing", "Completed", etc.
   timerEnd: Date,
   proofStatus: { type: String, default: "awaited" },
+  // FIXED: Add missing fields that are used in the application
+  providerId: String,
+  challenge: String,
+  approvedFields: [String],
+  verificationTime: Date,
+  verificationDetails: Object,
+  updatedAt: { type: Date, default: Date.now },
 });
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema, "users");
