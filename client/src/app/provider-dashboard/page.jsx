@@ -133,7 +133,7 @@ export default function ProviderDashboard() {
     fetchUsers();
   }, [toast]);
 
-  // FIXED: Proper verification effect with correct proofType handling
+  // FIXED: Improved verification effect that runs immediately when status changes to "Ongoing"
   useEffect(() => {
     const verifyPendingProofs = async () => {
       const pending = requests.filter(req =>
@@ -142,26 +142,36 @@ export default function ProviderDashboard() {
         !verificationInProgress.has(req.sessionId)
       );
 
+      if (pending.length === 0) return;
+
+      console.log(`Found ${pending.length} requests needing verification`);
+
       for (const req of pending) {
         try {
+          console.log(`Starting verification for session: ${req.sessionId}`);
+
           setVerificationInProgress(prev => new Set(prev).add(req.sessionId));
 
-          // FIXED: Handle proofType as array - verify each proof type
+          // Handle proofType as array - verify each proof type
           const proofTypes = Array.isArray(req.proofType) ? req.proofType : [req.proofType];
 
           for (const proofType of proofTypes) {
+            console.log(`Verifying proof type: ${proofType} for session: ${req.sessionId}`);
+
             const res = await fetch("/api/verify-proof", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                cid: req.user.cid,
-                proofType: proofType, // Send single proofType string
+                cid: req.cid,
+                proofType: proofType,
                 sessionId: req.sessionId
               })
             });
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Proof verification failed");
+
+            console.log(`Verification result for ${proofType}:`, data);
 
             toast({
               title: "Proof Verified",
@@ -170,7 +180,9 @@ export default function ProviderDashboard() {
             });
           }
 
-          await fetchRequests(); // Refresh data
+          // Refresh requests after successful verification
+          await fetchRequests();
+
         } catch (err) {
           console.error("Verification error:", err);
           toast({
@@ -188,14 +200,15 @@ export default function ProviderDashboard() {
       }
     };
 
+    // Run verification immediately when there are pending requests
     if (requests.length > 0) {
       verifyPendingProofs();
     }
-  }, [requests, toast, verificationInProgress]);
+  }, [requests, toast]); // FIXED: Depend on the actual requests array, not just length
 
   // Filtering and sorting
   const filteredRequests = requests.filter((req) => {
-    const userMatch = userFilter.length === 0 || userFilter.includes(req.user?.cid);
+    const userMatch = userFilter.length === 0 || userFilter.includes(req.cid);
     const proofMatch = proofFilter.length === 0 || proofFilter.some(p =>
       Array.isArray(req.proofType) ? req.proofType.includes(p) : req.proofType === p
     );
@@ -278,7 +291,7 @@ export default function ProviderDashboard() {
           name: "Provider Admin",
           description: `Proof requested: ${selectedProofs.join(", ")}`,
           providerId: `provider_admin_${selectedUser.cid}`,
-          sessionDuration: 60000,
+          sessionDuration: 120000,
           category: "Admin"
         },
         requestedFields,
@@ -489,7 +502,7 @@ export default function ProviderDashboard() {
                     <TableRow key={req.sessionId}>
                       <TableCell>
                         <div className="font-medium text-white">{req.user.name}</div>
-                        <div className="text-xs text-zinc-400">{formatCid(req.user.cid)}</div>
+                        <div className="text-xs text-zinc-400">{formatCid(req.cid)}</div>
                       </TableCell>
                       <TableCell className="text-white">{formatISTTime(new Date(req.requestTime))}</TableCell>
                       <TableCell className="text-white">{

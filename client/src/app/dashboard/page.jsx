@@ -48,29 +48,15 @@ export default function UserDashboard() {
 
   // Fetch requests from database
   const fetchRequests = async () => {
-    if (!address) return;
 
     try {
       setIsRefreshing(true);
       console.log(`Fetching requests for wallet: ${address}`);
 
-      const response = await fetch(`/api/requests/user/?walletAddress=${encodeURIComponent(address)}`);
+      const res = await fetch("/api/requests/provider");
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          // User not found - this is okay, just means no requests yet
-          setAllRequests([]);
-          return;
-        }
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.success || !Array.isArray(data.requests)) {
-        throw new Error("Invalid response format");
-      }
+      if (!res.ok) throw new Error("Failed to fetch requests");
+      const data = await res.json();
 
       console.log(`Loaded ${data.requests.length} requests from database`);
       setAllRequests(data.requests);
@@ -90,7 +76,7 @@ export default function UserDashboard() {
   // Update request in database
   const updateRequest = async (sessionId, updates) => {
     try {
-      const response = await fetch('/api/user-requests', {
+      const response = await fetch('/api/requests/provider', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -344,8 +330,15 @@ export default function UserDashboard() {
   // Session timer display
   const getSessionStatus = (req) => {
     if (req.status === "Ongoing") {
+      // Convert timerEnd to timestamp in ms if it's a string
+      const timerEnd = typeof req.timerEnd === "string"
+        ? new Date(req.timerEnd).getTime()
+        : req.timerEnd;
+
+      if (!timerEnd || isNaN(timerEnd)) return "Unknown";
+
       const now = Date.now();
-      const timeLeft = req.timerEnd - now;
+      const timeLeft = timerEnd - now;
       if (timeLeft <= 0) return "Expired";
       const minutes = Math.floor(timeLeft / 60000);
       const seconds = Math.floor((timeLeft % 60000) / 1000);
@@ -353,6 +346,7 @@ export default function UserDashboard() {
     }
     return req.status;
   };
+
 
   const formatApprovedFields = (fields) => {
     if (!fields || fields.length === 0) return "None";
@@ -459,7 +453,7 @@ export default function UserDashboard() {
                     const sessionStatus = getSessionStatus(provider);
                     const needsResign = ["Completed", "Revoked"].includes(provider.status) && !hasResignSignature(provider);
                     return (
-                      <TableRow key={provider.id} className="border-zinc-800 hover:bg-zinc-800/50">
+                      <TableRow key={provider.id || provider.sessionId} className="border-zinc-800 hover:bg-zinc-800/50">
                         <TableCell className="font-medium text-white">
                           <div>
                             <div>{getProviderDisplayName(provider)}</div>

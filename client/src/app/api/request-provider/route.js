@@ -78,11 +78,12 @@ export async function POST(request) {
     await Models.Requests.create({
       sessionId,
       user: userDoc._id, // Add userId field for verification lookup
+      cid: userDoc.cid,
       proofType: proofType || ["age"], // Use proofType from frontend
       requestedFields: fieldValidation.validFields,
       requestTime: new Date(),
       status: "Pending",
-      timerEnd: new Date(Date.now() + (provider.sessionDuration || 30000)),
+      timerEnd: new Date(Date.now() + (60000)),
       proofStatus: "awaited",
       providerId: provider.providerId,
       challenge: challenge
@@ -96,7 +97,7 @@ export async function POST(request) {
         name: provider.name,
         description: provider.description,
         requestedFields: fieldValidation.validFields, // Only valid fields
-        sessionDuration: provider.sessionDuration || 30000, // 30 seconds default
+        sessionDuration: 120000, // 30 seconds default
         providerId: provider.providerId,
         requestId: sessionId, // Use UUID as request/session ID
         challenge, // Verifiable JWT challenge

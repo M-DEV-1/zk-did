@@ -19,6 +19,7 @@ const VerificationKeySchema = new Schema({
 const RequestSchema = new Schema({
   sessionId: { type: String, required: true, unique: true },
   user: { type: ObjectId, ref: "User", required: true },
+  cid: { type: String, required: true, unique: true },
   proofType: [String],
   requestedFields: [String],
   requestTime: { type: Date, default: Date.now },
@@ -29,7 +30,7 @@ const RequestSchema = new Schema({
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema, "users");
 
-const VerificationKey = mongoose.models.VerificationKey || mongoose.model("VerificationKey", VerificationKeySchema, "vkeys");
+const VerificationKey = mongoose.models.VerificationKey || mongoose.model("VerificationKey", VerificationKeySchema, "verificationkeys");
 
 const Requests = mongoose.models.Request || mongoose.model("Request", RequestSchema, "requests");
 

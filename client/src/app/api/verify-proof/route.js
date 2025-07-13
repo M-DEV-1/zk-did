@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 export async function POST(req) {
   try {
     const { cid, proofType, sessionId } = await req.json();
-    
+    console.log("Verification Proof CID: " + cid);
     // Validate required fields
     if (!cid || !proofType || !sessionId) {
       return new NextResponse("Missing cid, proofType, or sessionId", { status: 400 });
@@ -17,19 +17,22 @@ export async function POST(req) {
     console.log("Connected to DB");
 
     // Fetch VC JSON from IPFS with error handling
-    let data, vcData;
+
+    const { data, contentType } = await pinata.gateways.private.get(cid);
+    console.log("Data:", data);
+    console.log("Content-Type:", contentType);
     try {
-      data = await pinata.gateways.private.get(cid);
-      if (!data.ok) {
+      if (!data) {
         throw new Error(`Failed to fetch VC from IPFS. Status: ${data.status}`);
       }
-      vcData = await data.json();
     } catch (ipfsError) {
       console.error("IPFS fetch error:", ipfsError);
       throw new Error(`Failed to retrieve or parse VC data: ${ipfsError.message}`);
     }
 
-    const zk = vcData.zkProof;
+    let vcData = data;
+
+    const zk = vcData.content.zkProof;
     console.log("ZERO KNOWLEDGE: " + JSON.stringify(zk));
 
     // Validate zkProof structure
@@ -37,6 +40,7 @@ export async function POST(req) {
       throw new Error("Missing required zkProof fields: pi_a, pi_b, pi_c, publicSignals");
     }
 
+    console.log("proof-type: "+proofType);
     // Get verification key from DB
     const record = await Models.VerificationKey.findOne({ circuitName: proofType });
     if (!record) {
@@ -74,15 +78,14 @@ export async function POST(req) {
 
     // FIXED: Update the request status in DB - now matches the stored structure
     const updatedRequest = await Models.Requests.findOneAndUpdate(
-      { 
-        userId, // Now matches the stored userId field
+      {
+        user: userDoc._id,
         sessionId,
         // Optional: Add additional safety checks
-        "user.cid": cid, // Ensure CID matches
         proofStatus: "awaited" // Only update if still awaited
       },
-      { 
-        proofStatus: verified ? "Valid" : "Invalid", 
+      {
+        proofStatus: verified ? "Valid" : "Invalid",
         status: verified ? "Completed" : "Ongoing", // Keep ongoing if invalid
         verificationTime: new Date(),
         // Store proof verification details
@@ -97,13 +100,13 @@ export async function POST(req) {
 
     if (!updatedRequest) {
       console.warn(`No request found for userId: ${userId}, sessionId: ${sessionId}, cid: ${cid}`);
-      
+
       // Try alternative query to debug
-      const debugRequest = await Models.Requests.findOne({ 
+      const debugRequest = await Models.Requests.findOne({
         sessionId,
-        "user.cid": cid 
+        cid
       });
-      
+
       if (debugRequest) {
         console.log("Found request but userId mismatch:", {
           storedUserId: debugRequest.userId,
@@ -125,8 +128,9 @@ export async function POST(req) {
 
   } catch (err) {
     console.error("verify-proof error:", err);
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: err.message,
+      proofStatus: "Failed to Verify",
       verified: false,
       proofStatus: "Invalid"
     }, { status: 500 });
