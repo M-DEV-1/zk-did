@@ -27,12 +27,20 @@ describe('AgeVerifier', () => {
     ageVerifier = await AgeVerifier.deploy(verifierAddress)
   })
 
-  const wasmFilePath = path.join(__dirname, '../circuits/build/snark/age-verification.wasm');
-  const finalZkeyPath = path.join(__dirname, '../circuits/build/snark/age-verification_final.zkey');
+  const wasmFilePath = path.join(__dirname, '../circuits/build/snark/age.wasm');
+  const finalZkeyPath = path.join(__dirname, '../circuits/build/snark/age_final.zkey');
   // console.log(wasmFilePath + "\n" + finalZkeyPath);
 
   it('Should verify if age is above 18', async () => {
-    const witness = { age: 20 };
+    const currentYear = new Date().getFullYear();
+    const birthYear = currentYear - 20; // 20 years old
+    const challenge = "test-challenge-123";
+    
+    const witness = { 
+      dobYear: birthYear,
+      referenceYear: currentYear,
+      challenge: challenge
+    };
 
     const { proof, publicSignals } = await groth16.fullProve(witness, wasmFilePath, finalZkeyPath, null);
 
@@ -53,7 +61,17 @@ describe('AgeVerifier', () => {
 
   it('should reject age 17 (invalid)', async () => {
     try {
-      await groth16.fullProve({ age: 17 }, wasmFilePath, finalZkeyPath);
+      const currentYear = new Date().getFullYear();
+      const birthYear = currentYear - 17; // 17 years old
+      const challenge = "test-challenge-456";
+      
+      const witness = { 
+        dobYear: birthYear,
+        referenceYear: currentYear,
+        challenge: challenge
+      };
+      
+      await groth16.fullProve(witness, wasmFilePath, finalZkeyPath);
       throw new Error("Proof should have failed but succeeded");
     } catch (err) {
       expect(err.message).to.include('Assert Failed'); // or just check that error occurred

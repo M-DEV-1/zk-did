@@ -11,7 +11,7 @@ async function requestVotingBoothConsent() {
       name: "Voting Booth System",
       description: "We need to verify your eligibility and location for voting purposes.",
       providerId: "voting_booth_001",
-      sessionDuration: 60000, // 30 seconds
+      sessionDuration: 120000, // 30 seconds
       category: "Government",
       website: "https://eci.gov.in",
       contact: "support@eci.gov.in"

@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, Loader2, XCircle, Copy, ExternalLink } from "lucide-react";
@@ -19,6 +19,8 @@ export default function ProofProgressModal({
   onSuccess,
   signPayload,
   generateAgeProof,
+  referenceYear,
+  challenge,
 }) {
   const [currentStep, setCurrentStep] = useState("proof");
   const [cid, setCid] = useState(null);
@@ -34,24 +36,26 @@ export default function ProofProgressModal({
 
     const runSteps = async () => {
       try {
-        const zkProof = await generateAgeProof(formData.dob);
+        const zkProof = await generateAgeProof(formData.credentialSubject.dob, referenceYear, challenge);
 
         setCurrentStep("sign");
         const now = new Date();
         const vc = {
-          context: ["https://www.w3.org/2018/credentials/v1"],
-          type: ["VerifiableCredential", "AadhaarCredential"],
-          issuer: "did:example:issuer",
-          issuanceDate: now.toISOString(),
+          "@context": ["https://www.w3.org/2018/credentials/v1"],
+          "type": ["VerifiableCredential", "AadhaarCredential"],
+          "issuer": "did:example:issuer",
+          "issuanceDate": now.toISOString(),
           ...formData,
-          locationHistory: [
+          "challenge": challenge.toString(),
+          "referenceYear": referenceYear,
+          "locationHistory": [
             {
               ...formData.location,
-              session: { id: crypto.randomUUID(), createdAt: now.toISOString() },
+              "session": { "id": crypto.randomUUID(), "createdAt": now.toISOString() },
             },
           ],
-          signatures: [],
-          proof: zkProof,
+          "signatures": [],
+          "zkProof": zkProof,
         };
 
         const signature = await signPayload(vc);
@@ -102,9 +106,9 @@ export default function ProofProgressModal({
           <DialogTitle className="text-xl font-semibold">
             {cid ? "✅ VC Uploaded Successfully" : "Hold on, verifying your credential..."}
           </DialogTitle>
-          <p className="text-sm text-zinc-400 mt-1">
+          <DialogDescription className="text-sm text-zinc-400 mt-1">
             {cid ? "Copy your CID or continue." : "This might take a few seconds. Don’t close the window."}
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <Progress

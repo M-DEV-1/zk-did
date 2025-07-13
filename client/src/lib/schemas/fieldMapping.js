@@ -3,16 +3,15 @@ import { Calendar, MapPin, User, CreditCard, FileText } from "lucide-react";
 // Field mapping configuration for dynamic consent UI
 // Only includes fields that actually exist in vcSchema.js
 export const FIELD_MAPPING = {
-  aadhaarId: {
-    label: "Aadhaar Number",
+  cid: {
+    label: "Verifiable Credential ID",
     icon: CreditCard,
-    description: "Your 12-digit Aadhaar identification number",
-    placeholder: "12-digit number",
+    description: "Your unique credential identifier on IPFS",
+    placeholder: "IPFS CID",
     type: "text",
     validation: {
-      pattern: "^[0-9]{12}$",
-      minLength: 12,
-      maxLength: 12
+      minLength: 10,
+      maxLength: 100
     }
   },
   name: {
@@ -81,7 +80,7 @@ export const validateFields = (requestedFields) => {
 export const getSchemaFields = () => {
   return {
     walletAddress: "Wallet Address (auto-filled)",
-    aadhaarId: "Aadhaar Number",
+    cid: "Verifiable Credential ID",
     name: "Full Name", 
     dob: "Date of Birth",
     location: "Location Coordinates",

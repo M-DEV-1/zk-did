@@ -23,6 +23,18 @@ export default function AadhaarVCForm() {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [vcCID, setVcCID] = useState(null);
+  const [referenceYear, setReferenceYear] = useState(null);
+  const [challenge, setChallenge] = useState(null);
+
+  // Converts a UUID string to a BigInt using SHA-256 | GPT
+  async function uuidToBigInt(uuid) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(uuid);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    return BigInt("0x" + hashHex);
+  }
 
   // temporary function - before "proofs" circuit compilation script is written in 'client'
   const generateEmptyProof = () => ({
@@ -36,14 +48,34 @@ export default function AadhaarVCForm() {
 
   // initialize user-facing fields
   const [formData, setFormData] = useState({
-    walletAddress: "",
-    aadhaarId: "",
-    name: "",
-    dob: "",
-    location: { latitude: 0, longitude: 0 },
-    proof: generateEmptyProof()
-    // hidden fields are populated before submit
+    "@context": ["https://www.w3.org/2018/credentials/v1"],
+    type: ["VerifiableCredential"],
+    issuer: "did:example:issuer", // set a dummy DID or real one
+    issuanceDate: new Date().toISOString(),
+    zkProof: {
+      protocol: "groth16",
+      curve: "bn128",
+      pi_a: ["", "", ""],
+      pi_b: [["", ""], ["", ""], ["", ""]],
+      pi_c: ["", "", ""],
+      publicSignals: []
+    },
+    proof: {
+      type: "",
+      created: new Date().toISOString(),
+      proofPurpose: "",
+      verificationMethod: "",
+      jws: ""
+    },
+    credentialSubject: {
+      walletAddress: "",
+      aadhaarId: "",
+      name: "",
+      dob: "",
+      location: { latitude: 0, longitude: 0 }
+    }
   });
+  
 
   // Mock data array for pre-fill
   const mockDataArray = [
@@ -73,15 +105,18 @@ export default function AadhaarVCForm() {
     const random = Math.floor(Math.random() * mockDataArray.length);
     setFormData((prev) => ({
       ...prev,
-      ...mockDataArray[random],
-      walletAddress: address,
+      credentialSubject: {
+        ...prev.credentialSubject,
+        ...mockDataArray[random],
+        walletAddress: address
+      }
     }));
   };
 
   // set wallet address on every switch
   useEffect(() => {
     if (address) {
-      setFormData((prev) => ({ ...prev, walletAddress: address }));
+      setFormData((prev) => ({ ...prev, credentialSubject: { ...prev.credentialSubject, walletAddress: address } }));
     }
   }, [address]);
 
@@ -99,11 +134,14 @@ export default function AadhaarVCForm() {
       (pos) => {
         setFormData((prev) => ({
           ...prev,
-          location: {
-            ...prev.location,
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          },
+          credentialSubject: {
+            ...prev.credentialSubject,
+            location: {
+              ...prev.credentialSubject.location,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude
+            }
+          }
         }));
       },
       (err) => {
@@ -139,9 +177,20 @@ export default function AadhaarVCForm() {
     toast({ title: "Credential uploaded", description: `IPFS CID: ${cid}` });
     setVcCID(cid);
     setSubmitted(true);
+    // temporary storage | will connect DB or some other mechanism
+    const name = formData.name || "Unknown"; // this line is an example of why we should do typescript
+    const storedProofs = JSON.parse(localStorage.getItem("userProofCIDs") || "[]");
+    storedProofs.push({ name, cid });
+    localStorage.setItem("userProofCIDs", JSON.stringify(storedProofs));
   };
 
   const handleSubmit = useCallback(async () => {
+    const year = new Date().getFullYear();
+    const challengeString = crypto.randomUUID();
+    const challenge = await uuidToBigInt(challengeString);
+
+    setReferenceYear(year);
+    setChallenge(challenge);
     setModalOpen(true);
   });
 
@@ -205,6 +254,8 @@ export default function AadhaarVCForm() {
         onSuccess={handleSuccess}
         signPayload={signPayload}
         generateAgeProof={generateAgeProof}
+        referenceYear={referenceYear}
+        challenge={challenge}
       />
     </>
   );
