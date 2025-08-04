@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { generateAgeProof } from "@/utils/generateAgeProof";
+import { generateAgeProof } from "@/lib/scripts/generateAgeProof";
 import ProofProgressModal from "@/components/proofModal";
 
 export default function AadhaarVCForm() {

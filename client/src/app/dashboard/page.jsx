@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import ConsentModal from "@/components/ConsentModal";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { useSignMessage } from "wagmi";
-import { generateAgeProof } from "@/utils/generateAgeProof";
+import { generateAgeProof } from "@/lib/scripts/generateAgeProof";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function UserDashboard() {
