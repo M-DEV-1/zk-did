@@ -2,7 +2,11 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "./ui/button";
 
-export const BackButton = ({ className }) => {
+interface BackButtonProps {
+    className?: string;
+}
+
+export const BackButton = ({ className }: BackButtonProps) => {
     const router = useRouter();
     return (
         <Button
